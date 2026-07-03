@@ -1,0 +1,9 @@
+{
+  "appId": "com.reachoutmediatech.commandcenter",
+  "appName": "Reachout Command Center",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "android": {
+    "allowMixedContent": true
+  }
+}

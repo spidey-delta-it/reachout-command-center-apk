@@ -1,0 +1,1427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reachout Command Center v2.0</title>
+<!-- Fonts: system-ui fallback for performance; Inter loads async if available -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="capacitor-bridge.js"></script>
+<style>
+:root{
+  --bg:#f0f4f8;--surface:#fff;--surface2:#f8fafc;--surface3:#f1f5f9;--surface4:#e8edf5;
+  --border:#e2e8f0;--border2:#cbd5e1;
+  --t1:#0f172a;--t2:#334155;--t3:#64748b;--t4:#94a3b8;--t5:#cbd5e1;
+  --primary:#6366f1;--primary2:#4f46e5;--primary3:#818cf8;--primary-bg:#eef2ff;--primary-bd:#c7d2fe;
+  --green:#10b981;--green2:#059669;--green3:#34d399;--green-bg:#ecfdf5;--green-bd:#6ee7b7;
+  --red:#ef4444;--red2:#dc2626;--red3:#f87171;--red-bg:#fef2f2;--red-bd:#fca5a5;
+  --amber:#f59e0b;--amber2:#d97706;--amber-bg:#fffbeb;--amber-bd:#fde68a;
+  --blue:#3b82f6;--blue-bg:#eff6ff;--blue-bd:#bfdbfe;
+  --cyan:#06b6d4;--cyan-bg:#ecfeff;
+  --purple:#8b5cf6;--purple-bg:#f5f3ff;
+  --sidebar-w:220px;--sidebar-c:56px;--topbar-h:54px;
+  --r:8px;--rlg:12px;--rxl:16px;--rxxl:20px;
+  --sh:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.05);
+  --sh-md:0 4px 12px rgba(0,0,0,.08),0 2px 4px rgba(0,0,0,.05);
+  --sh-lg:0 10px 30px rgba(0,0,0,.1),0 4px 8px rgba(0,0,0,.05);
+  --sh-xl:0 20px 50px rgba(0,0,0,.15);
+  --f:'Inter',system-ui,-apple-system,sans-serif;--fm:'JetBrains Mono','Cascadia Code','Consolas',monospace;
+}
+.dm{
+  --bg:#0c1220;--surface:#131e2e;--surface2:#192438;--surface3:#1e2d42;--surface4:#243348;
+  --border:#1e2d42;--border2:#243348;
+  --t1:#f1f5f9;--t2:#94a3b8;--t3:#64748b;--t4:#475569;--t5:#334155;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{font-family:var(--f);background:var(--bg);color:var(--t1);font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased}
+
+/* ── Scrollbars ── */
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:var(--surface3);border-radius:8px}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:8px;border:2px solid var(--surface3)}
+::-webkit-scrollbar-thumb:hover{background:var(--t3)}
+::-webkit-scrollbar-corner{background:var(--surface3)}
+*{scrollbar-width:thin;scrollbar-color:var(--border2) var(--surface3)}
+
+/* ── Global Search Dropdown ── */
+.search-dropdown{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh-lg);z-index:9999;max-height:320px;overflow-y:auto;display:none}
+.search-dropdown.show{display:block}
+.sd-item{display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;border-bottom:.5px solid var(--border);transition:background .1s}
+.sd-item:last-child{border-bottom:none}
+.sd-item:hover{background:var(--surface3)}
+.sd-av{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0}
+.sd-av.on{background:var(--green-bg);color:var(--green)}
+.sd-av.off{background:var(--red-bg);color:var(--red)}
+.sd-name{font-size:12.5px;font-weight:500;color:var(--t1)}
+.sd-meta{font-size:11px;color:var(--t3);margin-top:1px}
+.sd-status{margin-left:auto;font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;flex-shrink:0}
+.sd-status.on{background:var(--green-bg);color:var(--green)}
+.sd-status.off{background:var(--red-bg);color:var(--red)}
+.sd-empty{padding:18px 12px;text-align:center;font-size:12px;color:var(--t3)}
+.sd-footer{padding:8px 12px;font-size:11px;color:var(--t3);border-top:1px solid var(--border);background:var(--surface2);text-align:center;cursor:pointer}
+.sd-footer:hover{color:var(--primary)}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:var(--t4)}
+
+/* ── Animations ── */
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes fadein{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
+@keyframes slideup{from{transform:translateY(6px);opacity:0}to{transform:none;opacity:1}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes countup{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+@keyframes ripple{0%{transform:scale(0);opacity:.6}100%{transform:scale(4);opacity:0}}
+
+/* ── Progress bar ── */
+#progress-bar{position:fixed;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--primary),var(--primary3),var(--cyan));transform:scaleX(0);transform-origin:left;transition:transform .3s;z-index:9999;display:none;box-shadow:0 0 10px rgba(99,102,241,.5)}
+#progress-bar.on{display:block}
+
+/* ══════════════════════════════════════════
+   APP SHELL
+══════════════════════════════════════════ */
+#app{display:flex;height:100vh;overflow:hidden}
+
+/* ── SIDEBAR ── */
+.sidebar{width:var(--sidebar-w);flex-shrink:0;height:100vh;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width .22s cubic-bezier(.4,0,.2,1);position:relative;z-index:100}
+.sidebar.collapsed{width:var(--sidebar-c)}
+.sb-header{padding:14px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:9px;min-height:54px;flex-shrink:0;overflow:hidden}
+.sb-logo{width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--purple));display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;box-shadow:0 4px 12px rgba(99,102,241,.3)}
+.sb-brand{overflow:hidden}
+.sb-name{font-size:14px;font-weight:900;color:var(--t1);letter-spacing:-.3px;white-space:nowrap;line-height:1.2}
+.sb-sub{font-size:10.5px;font-weight:600;color:var(--t3);white-space:nowrap;line-height:1.2;letter-spacing:-.1px}
+.sb-ver{font-size:9px;font-weight:600;color:var(--t4);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;margin-top:1px}
+.sb-nav{flex:1;overflow-y:auto;padding:8px 8px}
+.sb-sec{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:var(--t5);padding:10px 8px 4px;white-space:nowrap;overflow:hidden}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--r);font-size:12.5px;font-weight:500;color:var(--t3);cursor:pointer;transition:all .15s;white-space:nowrap;overflow:hidden;margin-bottom:2px;position:relative}
+.nav-item:hover{background:var(--surface3);color:var(--t1)}
+.nav-item.active{background:var(--primary-bg);color:var(--primary);font-weight:600}
+.nav-item.active::before{content:'';position:absolute;left:0;top:20%;bottom:20%;width:3px;background:var(--primary);border-radius:0 3px 3px 0}
+.nav-icon{font-size:15px;width:20px;text-align:center;flex-shrink:0}
+.nav-label{overflow:hidden;text-overflow:ellipsis;flex:1}
+.nav-badge{background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:999px;flex-shrink:0;display:none;min-width:16px;text-align:center}
+.nav-badge.show{display:block}
+.sb-footer{border-top:1px solid var(--border);padding:8px}
+.sb-collapse-btn{padding:9px 10px;border:none;background:none;display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:500;color:var(--t3);white-space:nowrap;overflow:hidden;transition:all .15s;width:100%;border-radius:var(--r)}
+.sb-collapse-btn:hover{color:var(--t1);background:var(--surface3)}
+.collapse-chev{font-size:11px;flex-shrink:0;transition:transform .22s;font-weight:700}
+.sidebar.collapsed .collapse-chev{transform:rotate(180deg)}
+.sidebar.collapsed .sb-sec,.sidebar.collapsed .nav-label,.sidebar.collapsed .nav-badge,.sidebar.collapsed .sb-name,.sidebar.collapsed .sb-sub,.sidebar.collapsed .sb-ver,.sidebar.collapsed .collapse-lbl{display:none}
+.sidebar.collapsed .sb-header{justify-content:center;padding:14px 0}
+.sidebar.collapsed .nav-item{justify-content:center;padding:10px}
+.sidebar.collapsed .sb-collapse-btn{justify-content:center}
+.sidebar.collapsed .nav-item.active::before{display:none}
+
+/* ── MAIN WRAP ── */
+.main-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+
+/* ── TOPBAR ── */
+.topbar{height:var(--topbar-h);flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;padding:0 16px;box-shadow:var(--sh)}
+.tb-search{display:flex;align-items:center;gap:7px;background:var(--surface3);border:1px solid var(--border);border-radius:var(--r);padding:0 11px;height:33px;width:250px;flex-shrink:0;transition:all .2s}
+.tb-search:focus-within{border-color:var(--primary);background:var(--surface);box-shadow:0 0 0 3px var(--primary-bg)}
+.s-ico{font-size:12px;color:var(--t4);flex-shrink:0}
+.s-inp{flex:1;background:none;border:none;outline:none;font-family:var(--f);font-size:12.5px;color:var(--t1)}
+.s-inp::placeholder{color:var(--t5)}
+.s-clear{font-size:11px;color:var(--t4);cursor:pointer;display:none}
+.s-clear.show{display:block}
+.tb-divider{width:1px;height:24px;background:var(--border);flex-shrink:0}
+.tb-live-stat{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:500;color:var(--t2);white-space:nowrap;padding:4px 10px;border-radius:999px;border:1px solid var(--border);background:var(--surface3)}
+.tb-live-stat .sval{font-family:var(--fm);font-weight:700;font-size:13px}
+.tb-live-stat.s-on .sval{color:var(--green)}
+.tb-live-stat.s-off .sval{color:var(--red)}
+.lb-dot{width:7px;height:7px;border-radius:50%}
+.lb-dot.g{background:var(--green);animation:pulse 2s infinite}
+.lb-dot.r{background:var(--red)}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:6px}
+.sync-chip{display:flex;align-items:center;gap:6px;padding:4px 10px;background:var(--surface3);border:1px solid var(--border);border-radius:999px;font-size:11px;font-weight:500;color:var(--t2)}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;flex-shrink:0}
+.sync-dot.syncing{background:var(--amber);animation:spin .7s linear infinite}
+.sync-dot.error{background:var(--red);animation:none}
+#sync-lbl{font-family:var(--fm);font-size:11px}
+.icon-btn{width:32px;height:32px;border-radius:var(--r);border:1px solid var(--border);background:var(--surface3);display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;color:var(--t2);transition:all .15s;position:relative;flex-shrink:0}
+.icon-btn:hover{background:var(--primary-bg);color:var(--primary);border-color:var(--primary-bd)}
+.icon-btn .nb{position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:999px;display:none;align-items:center;justify-content:center;padding:0 3px;border:2px solid var(--surface)}
+.icon-btn .nb.show{display:flex}
+.user-wrap{position:relative}
+.user-btn{display:flex;align-items:center;gap:7px;padding:4px 10px;border-radius:var(--r);cursor:pointer;border:1px solid var(--border);background:var(--surface3);transition:all .15s}
+.user-btn:hover{background:var(--surface4)}
+.user-av{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--purple));color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.user-name{font-size:12px;font-weight:600;color:var(--t1);white-space:nowrap}
+.user-menu{position:absolute;top:calc(100%+6px);right:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);width:190px;box-shadow:var(--sh-lg);z-index:1000;display:none;animation:fadein .15s}
+.user-menu.show{display:block}
+.um-item{display:flex;align-items:center;gap:8px;padding:9px 13px;font-size:13px;color:var(--t2);cursor:pointer;transition:background .1s}
+.um-item:hover{background:var(--surface2);color:var(--t1)}
+.um-sep{height:1px;background:var(--border);margin:4px 0}
+
+/* ── PAGE WRAP ── */
+.page-wrap{flex:1;overflow-y:auto;overflow-x:hidden;padding:20px 22px;display:flex;flex-direction:column;gap:0}
+.page{display:none}
+.page.active{display:block}
+.page-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:18px}
+.page-title{font-size:21px;font-weight:800;color:var(--t1);letter-spacing:-.4px}
+.page-sub{font-size:12.5px;color:var(--t3);margin-top:3px}
+.page-actions{display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0}
+
+/* ══════════════════════════════════════════
+   DASHBOARD LAYOUT
+══════════════════════════════════════════ */
+.db-grid{display:grid;gap:14px}
+
+/* Row 1: 5 KPI cards */
+.db-kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+
+/* Row 2: health bar full-width */
+/* Row 3: 3-col charts row */
+.db-charts-row{display:grid;grid-template-columns:260px 1fr 1fr;gap:14px}
+
+/* Row 3: 4-col insight cards */
+.db-insights-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+
+/* Row 4: 3-col lower row */
+.db-lower-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+
+/* Row 5: device table */
+
+/* ── KPI Cards ── */
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rxl);padding:18px 20px;position:relative;overflow:hidden;box-shadow:var(--sh);transition:all .2s;cursor:default}
+.kpi-card:hover{transform:translateY(-2px);box-shadow:var(--sh-md)}
+.kpi-card::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:var(--rxl) var(--rxl) 0 0;opacity:.8}
+.kpi-card.k-blue::after{background:linear-gradient(90deg,var(--primary),var(--primary3))}
+.kpi-card.k-green::after{background:linear-gradient(90deg,var(--green),var(--green3))}
+.kpi-card.k-red::after{background:linear-gradient(90deg,var(--red),var(--red3))}
+.kpi-card.k-amber::after{background:linear-gradient(90deg,var(--amber),#fbbf24)}
+.kpi-card.k-purple::after{background:linear-gradient(90deg,var(--purple),var(--primary3))}
+.kpi-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px}
+.kpi-icon{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.kpi-icon.ik-blue{background:var(--primary-bg)}
+.kpi-icon.ik-green{background:var(--green-bg)}
+.kpi-icon.ik-red{background:var(--red-bg)}
+.kpi-icon.ik-amber{background:var(--amber-bg)}
+.kpi-icon.ik-purple{background:var(--purple-bg)}
+.kpi-trend{font-size:11px;font-weight:600;display:flex;align-items:center;gap:3px;padding:3px 8px;border-radius:999px}
+.kt-up{background:var(--green-bg);color:var(--green2)}
+.kt-dn{background:var(--red-bg);color:var(--red2)}
+.kt-neut{background:var(--surface3);color:var(--t3)}
+.kpi-val{font-family:var(--fm);font-size:30px;font-weight:800;color:var(--t1);line-height:1;letter-spacing:-.5px;animation:countup .3s ease}
+.kpi-lbl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-top:5px}
+.kpi-sub{font-size:11px;color:var(--t4);margin-top:3px}
+.kpi-spark{position:absolute;bottom:0;left:0;right:0;height:40px;opacity:.5}
+
+/* ── Section cards ── */
+.s-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);box-shadow:var(--sh);overflow:hidden}
+.s-card-hd{display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--border)}
+.s-card-title{font-size:13px;font-weight:700;color:var(--t1);flex:1}
+.s-card-sub{font-size:11px;color:var(--t3)}
+.s-card-body{padding:14px 16px}
+.s-card-body.np{padding:0}
+
+/* ── Fleet Health band ── */
+.health-band{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:14px 20px;display:flex;align-items:center;gap:20px;box-shadow:var(--sh)}
+.hb-label{font-size:12px;font-weight:700;color:var(--t1);white-space:nowrap;min-width:88px}
+.hb-track{flex:1;height:10px;background:var(--surface4);border-radius:999px;overflow:hidden;position:relative}
+.hb-fill{height:100%;border-radius:999px;transition:width .6s ease;position:relative}
+.hb-fill.hf-good{background:linear-gradient(90deg,#10b981,#34d399)}
+.hb-fill.hf-warn{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
+.hb-fill.hf-crit{background:linear-gradient(90deg,#ef4444,#f87171)}
+.hb-fill::after{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);animation:shimmer 2s infinite;background-size:200% 100%}
+.hb-badge{font-size:11.5px;font-weight:700;padding:4px 12px;border-radius:999px;white-space:nowrap;flex-shrink:0}
+.hb-pct{font-family:var(--fm);font-size:15px;font-weight:800;color:var(--t1);white-space:nowrap;min-width:44px;text-align:right}
+.hb-meta{font-size:11px;color:var(--t3);white-space:nowrap}
+
+/* ── Chart card ── */
+.chart-wrap{position:relative;min-height:0}
+.chart-wrap.ch-200{height:200px}
+.chart-wrap.ch-180{height:180px}
+.chart-wrap.ch-160{height:160px}
+.chart-wrap.ch-220{height:220px}
+
+/* ── Division health list ── */
+.div-health-list{display:flex;flex-direction:column;gap:0;max-height:220px;overflow-y:auto}
+.dhl-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;border-radius:6px;padding:7px 8px}
+.dhl-row:last-child{border-bottom:none}
+.dhl-row:hover{background:var(--surface3)}
+.dhl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dhl-name{font-size:12px;font-weight:600;color:var(--t2);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dhl-bar-wrap{width:70px;height:4px;background:var(--surface4);border-radius:999px;overflow:hidden;flex-shrink:0}
+.dhl-bar{height:100%;border-radius:999px;transition:width .5s}
+.dhl-pct{font-size:11px;font-weight:700;width:32px;text-align:right;flex-shrink:0;font-family:var(--fm)}
+.dhl-count{font-size:10px;color:var(--t4);flex-shrink:0;white-space:nowrap;width:38px;text-align:right}
+
+/* ── Activity live feed ── */
+.act-feed{display:flex;flex-direction:column;gap:0;max-height:220px;overflow-y:auto}
+.af-row{display:flex;align-items:flex-start;gap:8px;padding:7px 8px;border-radius:6px;transition:background .1s;cursor:default}
+.af-row:hover{background:var(--surface3)}
+.af-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:5px}
+.af-content{flex:1;min-width:0}
+.af-msg{font-size:12px;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.af-time{font-size:10.5px;color:var(--t4);font-family:var(--fm);margin-top:1px}
+.af-empty{text-align:center;color:var(--t4);font-size:12px;padding:20px}
+
+/* ── Status feed / offline list ── */
+.offline-list{display:flex;flex-direction:column;gap:0;max-height:220px;overflow-y:auto}
+.ol-row{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:6px;cursor:pointer;transition:background .1s}
+.ol-row:hover{background:var(--surface3)}
+.ol-av{width:26px;height:26px;border-radius:50%;background:var(--red-bg);color:var(--red2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.ol-name{font-size:12px;font-weight:600;color:var(--t1);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ol-div{font-size:11px;color:var(--t3);white-space:nowrap}
+.ol-last{font-size:10.5px;color:var(--t4);white-space:nowrap;font-family:var(--fm)}
+.ol-empty{text-align:center;color:var(--green);font-size:12.5px;font-weight:600;padding:20px}
+
+/* ── Mini stat row inside cards ── */
+.mini-stat-row{display:flex;gap:0;border-top:1px solid var(--border)}
+.mini-stat{flex:1;text-align:center;padding:10px 4px;border-right:1px solid var(--border)}
+.mini-stat:last-child{border-right:none}
+.ms-val{font-family:var(--fm);font-size:17px;font-weight:700;color:var(--t1)}
+.ms-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);margin-top:2px}
+
+/* ── Device table ── */
+.tbl-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;box-shadow:var(--sh)}
+.tbl-hd{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.tbl-title{font-size:13px;font-weight:700;color:var(--t1)}
+.filter-bar{display:flex;gap:4px;margin-left:8px}
+.filter-btn{padding:4px 11px;border-radius:999px;font-size:12px;font-weight:500;border:1px solid var(--border);background:var(--surface3);color:var(--t2);cursor:pointer;transition:all .12s}
+.filter-btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.tbl-right{margin-left:auto;display:flex;gap:6px;align-items:center}
+.tbl-loader{display:none;align-items:center;gap:6px;font-size:12px;color:var(--t3)}
+.tbl-loader.show{display:flex}
+.spin-sm{width:14px;height:14px;border-radius:50%;border:2px solid var(--border2);border-top-color:var(--primary);animation:spin .7s linear infinite}
+.div-tags-wrap{display:flex;flex-wrap:nowrap;gap:5px;padding:8px 16px;border-bottom:1px solid var(--border);background:var(--surface2);overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;-webkit-overflow-scrolling:touch}.div-tags-wrap::-webkit-scrollbar{height:8px}.div-tags-wrap::-webkit-scrollbar-thumb{background:var(--border2);border-radius:8px;border:2px solid var(--surface3)}
+.div-filter-btn{padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:500;border:1px solid var(--border);background:var(--surface);color:var(--t2);cursor:pointer;transition:all .12s}
+.div-filter-btn:hover{border-color:var(--primary);color:var(--primary)}
+.div-filter-btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+#sel-bar{display:none;align-items:center;gap:8px;padding:8px 16px;background:var(--primary-bg);border-bottom:1px solid var(--primary-bd);font-size:12.5px;color:var(--primary);font-weight:500}
+table{width:100%;border-collapse:collapse}
+thead th{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);padding:10px 12px;text-align:left;background:var(--surface2);border-bottom:1px solid var(--border);cursor:pointer;user-select:none;white-space:nowrap;transition:color .15s}
+thead th:hover{color:var(--t1)}
+tbody td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:12.5px;color:var(--t2);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr.dev-row{cursor:pointer;transition:background .1s}
+tbody tr.dev-row:hover{background:var(--surface2)}
+.dev-name-cell{display:flex;align-items:center;gap:8px}
+.dev-av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.av-on{background:var(--green-bg);color:var(--green2)}
+.av-off{background:var(--red-bg);color:var(--red2)}
+.dev-name{font-weight:600;color:var(--t1);font-size:13px}
+.status-pill{font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px;display:inline-flex;align-items:center;gap:4px}
+.pill-on{background:var(--green-bg);color:var(--green2)}
+.pill-off{background:var(--red-bg);color:var(--red2)}
+.mono{font-family:var(--fm);font-size:11.5px}
+.t3{color:var(--t3)}
+.empty-row{text-align:center;color:var(--t3);padding:32px!important;font-size:13px}
+
+/* ── Buttons ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:var(--r);font-family:var(--f);font-size:12.5px;font-weight:600;cursor:pointer;border:none;transition:all .15s;white-space:nowrap;letter-spacing:.01em}
+.btn-primary{background:var(--primary);color:#fff;box-shadow:0 2px 8px rgba(99,102,241,.3)}
+.btn-primary:hover{background:var(--primary2);transform:translateY(-1px);box-shadow:0 4px 12px rgba(99,102,241,.35)}
+.btn-outline{background:var(--surface);color:var(--t2);border:1px solid var(--border)}
+.btn-outline:hover{background:var(--surface3);color:var(--t1);border-color:var(--border2)}
+.btn-danger{background:var(--red-bg);color:var(--red);border:1px solid var(--red-bd)}
+.btn-danger:hover{background:var(--red);color:#fff}
+.btn-green{background:var(--green);color:#fff;box-shadow:0 2px 8px rgba(16,185,129,.25)}
+.btn-green:hover{background:var(--green2);transform:translateY(-1px)}
+.btn-sm{padding:5px 11px;font-size:12px}
+.btn-xs{padding:3px 8px;font-size:11px}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+
+/* ══════════════════════════════════════════
+   NON-DASHBOARD PAGES (unchanged structure)
+══════════════════════════════════════════ */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:18px;box-shadow:var(--sh)}
+.card-hd{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+.card-title{font-size:13px;font-weight:700;color:var(--t1)}
+.card-sub{font-size:11px;color:var(--t3);margin-left:auto}
+
+/* Division page */
+.div-summary-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.dsb-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:12px 18px;display:flex;align-items:center;gap:10px;flex:1;min-width:130px;box-shadow:var(--sh)}
+.dsb-icon{font-size:18px}
+.dsb-val{font-family:var(--fm);font-size:20px;font-weight:700;color:var(--t1)}
+.dsb-lbl{font-size:11px;color:var(--t3);margin-top:1px}
+.div-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.div-mod-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);overflow:hidden;transition:box-shadow .15s,transform .15s;position:relative;box-shadow:var(--sh)}
+.div-mod-card:hover{box-shadow:var(--sh-lg);transform:translateY(-2px)}
+.div-mod-card.dmc-good{border-top:3px solid var(--green)}
+.div-mod-card.dmc-warn{border-top:3px solid var(--amber)}
+.div-mod-card.dmc-crit{border-top:3px solid var(--red)}
+.dmc-head{padding:14px 16px 10px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.dmc-name{font-size:14px;font-weight:800;color:var(--t1)}
+.dmc-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;flex-shrink:0}
+.dmc-badge.b-good{background:var(--green-bg);color:var(--green2)}
+.dmc-badge.b-warn{background:var(--amber-bg);color:var(--amber2)}
+.dmc-badge.b-crit{background:var(--red-bg);color:var(--red2)}
+.dmc-stats{display:grid;grid-template-columns:1fr 1fr 1fr;padding:0 16px 10px;gap:4px}
+.dmc-stat{text-align:center;padding:8px 4px;border-radius:var(--r);background:var(--surface2)}
+.dmc-stat-v{font-family:var(--fm);font-size:18px;font-weight:700;color:var(--t1);line-height:1}
+.dmc-stat-l{font-size:10px;color:var(--t3);margin-top:3px;text-transform:uppercase;letter-spacing:.04em}
+.dmc-stat.s-on .dmc-stat-v{color:var(--green)}
+.dmc-stat.s-off .dmc-stat-v{color:var(--red)}
+.dmc-bar-wrap{padding:0 16px 10px}
+.dmc-bar-track{height:6px;background:var(--surface3);border-radius:999px;overflow:hidden}
+.dmc-bar-fill{height:100%;border-radius:999px;transition:width .5s}
+.dmc-bar-fill.f-good{background:linear-gradient(90deg,var(--green),var(--green3))}
+.dmc-bar-fill.f-warn{background:linear-gradient(90deg,var(--amber),#fbbf24)}
+.dmc-bar-fill.f-crit{background:linear-gradient(90deg,var(--red),var(--red3))}
+.dmc-pct-row{display:flex;justify-content:space-between;font-size:10px;color:var(--t3);margin-top:3px}
+.dmc-devs{padding:0 16px 10px;display:flex;flex-wrap:wrap;gap:4px;min-height:28px}
+.dmc-footer{padding:10px 16px;border-top:1px solid var(--border)}
+.dmc-explore-btn{width:100%;text-align:center;padding:7px;border-radius:var(--r);border:1px solid var(--primary);background:var(--primary-bg);color:var(--primary);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:5px}
+.dmc-explore-btn:hover{background:var(--primary);color:#fff}
+.dev-tag{font-size:11px;padding:2px 8px;border-radius:5px;cursor:pointer;font-weight:500}
+.dt-on{background:var(--green-bg);color:var(--green2)}
+.dt-off{background:var(--red-bg);color:var(--red2)}
+.div-empty-state{text-align:center;padding:60px;color:var(--t3);grid-column:1/-1}
+
+/* Division Explore Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(4px);z-index:5000;display:none;align-items:center;justify-content:center}
+.modal-box{background:var(--surface);border-radius:var(--rxl);width:560px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;box-shadow:var(--sh-xl);animation:fadein .18s}
+.modal-sm{width:420px}
+.modal-hd{display:flex;align-items:center;gap:12px;padding:18px 22px;border-bottom:1px solid var(--border)}
+.modal-hd-l{display:flex;align-items:center;gap:12px;flex:1;min-width:0}
+.modal-av{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;flex-shrink:0}
+.modal-title{font-size:16px;font-weight:800;color:var(--t1)}
+.modal-sub{font-size:12px;color:var(--t3);margin-top:2px}
+.modal-close{background:none;border:none;cursor:pointer;font-size:17px;color:var(--t3);padding:4px;border-radius:var(--r);transition:all .1s}
+.modal-close:hover{background:var(--surface3);color:var(--t1)}
+.modal-body{flex:1;overflow-y:auto;padding:20px 22px;display:flex;flex-direction:column;gap:16px}
+.modal-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.mstat{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px}
+.mstat-v{font-family:var(--fm);font-size:16px;font-weight:700;color:var(--t1);margin-bottom:2px}
+.mstat-l{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--t3)}
+.c-green{color:var(--green)}.c-red{color:var(--red)}.c-amber{color:var(--amber)}
+.ubar-wrap{margin-top:2px}
+.ubar-lbl{font-size:12px;font-weight:600;color:var(--t2);margin-bottom:6px}
+.ubar{height:10px;border-radius:999px;overflow:hidden;display:flex}
+.ubar-on{background:var(--green)}.ubar-off{background:var(--surface3)}
+.hist-list{display:flex;flex-direction:column;gap:4px;max-height:160px;overflow-y:auto}
+.hist-event{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;font-size:12px}
+.he-on{background:var(--green-bg)}.he-off{background:var(--red-bg)}
+.he-ts{font-family:var(--fm);font-size:11px;color:var(--t3);flex-shrink:0}
+.he-ev{color:var(--t2)}
+.hist-empty{font-size:12px;color:var(--t3);text-align:center;padding:16px}
+.modal-ft{padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
+.dem-stat{flex:1;text-align:center;padding:14px 10px;border-right:1px solid var(--border)}
+.dem-stat:last-child{border-right:none}
+.dem-stat-v{font-family:var(--fm);font-size:22px;font-weight:800;color:var(--t1)}
+.dem-stat-l{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-top:3px}
+
+/* Activity page */
+.af-bar{display:flex;gap:4px;margin-bottom:12px}
+.af-btn{padding:4px 10px;border-radius:999px;font-size:12px;font-weight:500;border:1px solid var(--border);background:var(--surface2);color:var(--t2);cursor:pointer}
+.af-btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.ap-item{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;border:1px solid var(--border);margin-bottom:4px;font-size:12px;background:var(--surface);animation:slideup .15s}
+.ap-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.ap-time{font-family:var(--fm);font-size:10.5px;color:var(--t3);flex-shrink:0;min-width:58px}
+.ap-msg{flex:1;color:var(--t2)}
+.ap-type{font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px;flex-shrink:0}
+.apt-ok{background:var(--green-bg);color:var(--green2)}
+.apt-err{background:var(--red-bg);color:var(--red2)}
+.apt-warn{background:var(--amber-bg);color:var(--amber2)}
+.apt-info{background:var(--surface3);color:var(--t3)}
+
+/* Mail / Settings / Reports — unchanged */
+.form-sec{margin-bottom:20px}
+.form-sec-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.fg{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
+.fg-lbl{font-size:12px;font-weight:500;color:var(--t2)}
+.fg-inp{padding:8px 11px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--f);font-size:13px;color:var(--t1);background:var(--surface);outline:none;transition:border .15s}
+.fg-inp:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-bg)}
+.fg-sub{font-size:11px;color:var(--t3);line-height:1.6}
+.fg-2col{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fg-check{display:flex;align-items:center;gap:8px;margin-bottom:7px;font-size:13px;color:var(--t2)}
+.fg-check input{width:14px;height:14px;cursor:pointer;accent-color:var(--primary)}
+.storage-info{font-size:11px;color:var(--t3);font-family:var(--fm);word-break:break-all;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-top:4px}
+.mc-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rlg);padding:20px;margin-bottom:14px;box-shadow:var(--sh)}
+.mc-title{font-size:14px;font-weight:700;color:var(--t1);margin-bottom:12px}
+.mc-recip-row{display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:10px}
+.mc-recip-av{width:28px;height:28px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.mc-setup-banner{background:var(--amber-bg);border:1px solid var(--amber-bd);border-radius:var(--r);padding:12px 14px;font-size:12px;color:var(--t2);margin-bottom:12px;line-height:1.6}
+.mc-setup-banner.hidden{display:none}
+.mail-preview{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:12px;font-size:12px;color:var(--t2);line-height:1.8;font-family:var(--fm);white-space:pre-wrap;max-height:200px;overflow:auto}
+.schedule-row{display:flex;align-items:center;gap:12px;padding:10px 0}
+.rpt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.rpt-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--rlg);padding:14px 16px;cursor:pointer;transition:all .15s;display:flex;flex-direction:column;gap:8px;box-shadow:var(--sh)}
+.rpt-card:hover{transform:translateY(-2px);box-shadow:var(--sh-md);border-color:var(--border2)}
+.rpt-icon{font-size:22px}
+.rpt-title{font-size:13px;font-weight:600;color:var(--t1)}
+.rpt-sub{font-size:11px;color:var(--t3);line-height:1.5}
+.act-search-wrap{display:flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:0 8px;height:26px}
+.act-search-wrap input{background:none;border:none;outline:none;font-size:11.5px;font-family:var(--f);color:var(--t1);width:110px}
+
+
+/* ── Modal Tabs ── */
+.modal-tab{padding:10px 18px;border:none;background:none;font-family:var(--f);font-size:12.5px;font-weight:500;color:var(--t3);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;flex-shrink:0}
+.modal-tab:hover{color:var(--t1);background:var(--surface3)}
+.modal-tab.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:600}
+.modal-tab-content{display:none}
+.modal-tab-content.active{display:flex;flex-direction:column}
+/* Timeline */
+.tl-item{display:flex;gap:0;position:relative;padding-bottom:4px}
+.tl-item:last-child .tl-line{display:none}
+.tl-line-wrap{display:flex;flex-direction:column;align-items:center;width:24px;flex-shrink:0}
+.tl-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:4px;border:2px solid var(--surface);box-shadow:0 0 0 2px currentColor}
+.tl-line{flex:1;width:2px;background:var(--border);min-height:20px;margin-top:2px}
+.tl-body{flex:1;padding:0 0 14px 8px}
+.tl-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px}
+.tl-card.tl-on{border-left:3px solid var(--green)}
+.tl-card.tl-off{border-left:3px solid var(--red)}
+.tl-event{font-size:12.5px;font-weight:600;color:var(--t1)}
+.tl-meta{font-size:11px;color:var(--t3);font-family:var(--fm);margin-top:3px}
+.tl-duration{font-size:11px;color:var(--t2);background:var(--surface3);padding:2px 7px;border-radius:4px;margin-top:4px;display:inline-block}
+/* Connectivity field */
+.conn-field{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
+.conn-field-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:4px}
+.conn-field-val{font-family:var(--fm);font-size:13px;font-weight:600;color:var(--t1);word-break:break-all}
+
+/* Toast */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--t1);color:#fff;padding:10px 20px;border-radius:999px;font-size:13px;font-weight:500;z-index:9999;opacity:0;pointer-events:none;transition:all .25s;white-space:nowrap;box-shadow:var(--sh-lg)}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ── Sort indicators ── */
+.sort-icon{font-size:10px;color:var(--t4);transition:color .15s;user-select:none}
+th[data-sort]{transition:color .15s}
+th[data-sort]:hover .sort-icon{color:var(--t2)}
+
+/* ── Active filter button ── */
+.active-filter{background:var(--primary-bg)!important;color:var(--primary)!important;border-color:var(--primary-bd)!important;font-weight:600!important}
+
+/* ── Clickable card hover ── */
+.s-card[onclick]:hover,.kpi-card[onclick]:hover{box-shadow:var(--sh-lg);transform:translateY(-2px);border-color:var(--primary-bd)}
+.s-card-hd[onclick]:hover{background:var(--surface2)}
+
+/* ── Offline duration preset chips ── */
+.preset-chip{padding:3px 10px;border:1px solid var(--border);border-radius:999px;font-size:11.5px;font-weight:500;color:var(--t2);background:var(--surface);cursor:pointer;transition:all .15s;white-space:nowrap}
+.preset-chip:hover{border-color:var(--primary-bd);color:var(--primary);background:var(--primary-bg)}
+.preset-chip.active{background:var(--primary);color:#fff;border-color:var(--primary);font-weight:700}
+
+/* ── Loading Screen ──────────────────────────────────────── */
+#loading-overlay{position:fixed;inset:0;z-index:99999;background:var(--surface);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:0;transition:opacity .4s ease}
+#loading-overlay.hide{opacity:0;pointer-events:none}
+#lo-logo{width:72px;height:72px;border-radius:18px;background:linear-gradient(135deg,#4338ca,#6366f1);display:flex;align-items:center;justify-content:center;margin-bottom:20px;box-shadow:0 8px 32px rgba(99,102,241,.35)}
+#lo-title{font-size:22px;font-weight:800;color:var(--t1);letter-spacing:-.5px;margin-bottom:4px}
+#lo-ver{font-size:12px;font-weight:500;color:var(--t4);margin-bottom:32px;text-transform:uppercase;letter-spacing:.1em}
+#lo-bar-wrap{width:220px;height:4px;background:var(--surface3);border-radius:4px;overflow:hidden;margin-bottom:14px}
+#lo-bar{height:100%;width:0%;border-radius:4px;background:linear-gradient(90deg,#4338ca,#6366f1);transition:width .4s ease;animation:lo-pulse 1.8s ease-in-out infinite}
+@keyframes lo-pulse{0%,100%{opacity:1}50%{opacity:.55}}
+#lo-status{font-size:12px;color:var(--t3);font-weight:400}
+
+/* ══════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE LAYER
+   (Additive only — preserves desktop layout & all functionality;
+    activates via viewport width so app remains identical on desktop.)
+══════════════════════════════════════════════════════════════ */
+.mobile-menu-btn{display:none;width:38px;height:38px;border-radius:var(--r);border:1px solid var(--border);background:var(--surface3);color:var(--t1);font-size:17px;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+.mobile-menu-btn:active{background:var(--primary-bg);color:var(--primary)}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:1999;opacity:0;transition:opacity .2s}
+.sidebar-overlay.show{display:block;opacity:1}
+body.no-scroll{overflow:hidden}
+
+@media (max-width:900px){
+  html,body{overflow:auto}
+  body{font-size:14.5px}
+
+  /* ── App shell becomes single column; sidebar becomes an off-canvas drawer ── */
+  #app{display:block;height:100vh}
+  .main-wrap{height:100vh}
+
+  .sidebar,.sidebar.collapsed{
+    position:fixed;top:0;left:0;bottom:0;width:82vw;max-width:300px;
+    transform:translateX(-100%);transition:transform .25s cubic-bezier(.4,0,.2,1);
+    z-index:2000;box-shadow:var(--sh-xl);
+  }
+  .sidebar.mobile-open{transform:translateX(0)}
+  /* Always show full labels in the drawer, regardless of desktop "collapsed" state */
+  .sidebar.collapsed .sb-sec,.sidebar.collapsed .nav-label,.sidebar.collapsed .nav-badge,
+  .sidebar.collapsed .sb-name,.sidebar.collapsed .sb-sub,.sidebar.collapsed .sb-ver,
+  .sidebar.collapsed .collapse-lbl{display:block}
+  .sidebar.collapsed .sb-header{justify-content:flex-start;padding:14px 12px}
+  .sidebar.collapsed .nav-item{justify-content:flex-start;padding:10px 10px}
+  .sb-collapse-btn{display:none}
+  .nav-item{padding:12px 10px;font-size:14px}
+  .nav-icon{font-size:17px}
+
+  /* ── Topbar: wraps into rows — icons/menu, then search, then live stats ── */
+  .topbar{height:auto;min-height:var(--topbar-h);flex-wrap:wrap;padding:8px 10px;gap:8px;row-gap:8px}
+  .mobile-menu-btn{display:flex;order:1}
+  .tb-right{order:2;margin-left:auto}
+  .tb-divider{display:none}
+  .tb-search{order:4;flex-basis:100%;width:100%;height:40px}
+  .tb-live-stat{order:5;flex:1 1 0;min-width:0;justify-content:center;padding:6px 6px;font-size:11.5px}
+  .tb-live-stat .sval{font-size:13px}
+  .user-name{display:none}
+  .user-btn{padding:6px}
+  .icon-btn{width:38px;height:38px;font-size:14px}
+  .sync-chip{padding:5px 9px}
+  #sync-lbl{display:none}
+
+  /* ── Page wrap: reclaim space, bigger touch/reading area ── */
+  .page-wrap{padding:14px 12px 28px}
+  .page-hd{flex-wrap:wrap;gap:10px;margin-bottom:14px}
+  .page-title{font-size:19px}
+  .page-sub{font-size:12.5px}
+  .page-actions{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;padding-bottom:2px}
+  .btn{padding:10px 14px;font-size:13px}
+  .btn-sm{padding:8px 13px;font-size:12.5px}
+
+  /* ── KPI cards: 2-column grid, roomy and legible ── */
+  .db-kpi-row{grid-template-columns:1fr 1fr;gap:10px}
+  .db-kpi-row .kpi-card:nth-child(5){grid-column:1/-1}
+  .kpi-card{padding:16px}
+  .kpi-val{font-size:26px}
+  .kpi-lbl{font-size:11.5px}
+  .kpi-icon{width:36px;height:36px;font-size:16px}
+
+  /* ── Fleet health band ── */
+  .health-band{flex-wrap:wrap;gap:10px;padding:14px 16px}
+  .hb-label{min-width:auto}
+  .hb-track{flex-basis:100%;order:5}
+  .hb-meta{flex-basis:100%;order:6;white-space:normal}
+
+  /* ── Insight cards + lower row: stack for readability ── */
+  .db-insights-row{grid-template-columns:1fr 1fr;gap:10px}
+  .db-lower-row{grid-template-columns:1fr;gap:12px}
+
+  /* ── Device tables: keep columns intact, scroll horizontally instead of clipping ── */
+  .tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .tbl-hd{padding:12px}
+  .tbl-hd .filter-bar{margin-left:0}
+  table{min-width:680px}
+  thead th{font-size:11.5px;padding:11px 12px}
+  tbody td{padding:12px;font-size:13px}
+  .dev-name{font-size:13.5px}
+
+  /* ── Division cards / report cards already fluid via auto-fill; give more breathing room ── */
+  .div-mod-card,.rpt-card{padding-bottom:2px}
+  .dmc-name{font-size:15px}
+  .div-summary-bar{gap:8px}
+  .dsb-card{min-width:44%}
+
+  /* ── Settings form: single column ── */
+  .fg-2col{grid-template-columns:1fr}
+  .card{padding:16px}
+
+  /* ── Modals: full-screen sheets on mobile for readability ── */
+  .modal-overlay{padding:0}
+  .modal-box{width:100vw!important;max-width:100vw!important;height:100vh!important;max-height:100vh!important;border-radius:0}
+  .modal-hd{padding:14px 16px!important}
+  .modal-body{padding:16px!important}
+  .modal-stats{grid-template-columns:1fr 1fr!important}
+  .modal-ft{flex-wrap:wrap;padding:12px 16px!important}
+  .modal-tab{padding:10px 12px;font-size:12px}
+  #div-explore-modal .modal-body{overflow-x:auto}
+  #div-explore-modal table{min-width:560px}
+  .dem-stat{padding:12px 6px}
+  .dem-stat-v{font-size:18px}
+
+  /* ── Toast: full-width, comfortable on small screens ── */
+  #toast{left:12px;right:12px;transform:translateY(20px);width:auto;text-align:center;white-space:normal}
+  #toast.show{transform:translateY(0)}
+}
+
+@media (max-width:480px){
+  .db-insights-row{grid-template-columns:1fr}
+  .dsb-card{min-width:100%}
+  .modal-stats{grid-template-columns:1fr!important}
+  .tb-live-stat{font-size:11px;padding:5px}
+  .page-title{font-size:17px}
+}
+</style>
+</head>
+<body>
+  <!-- ── Professional Loading Screen ── -->
+  <div id="loading-overlay">
+    <div id="lo-logo">
+      <svg width="38" height="38" viewBox="0 0 38 38" fill="none">
+        <rect x="2" y="4" width="34" height="22" rx="3" stroke="white" stroke-width="2" fill="none"/>
+        <rect x="5" y="7" width="28" height="16" rx="1.5" fill="rgba(255,255,255,.15)"/>
+        <rect x="8"  y="16" width="3.5" height="7" rx="1" fill="white" opacity=".7"/>
+        <rect x="14" y="13" width="3.5" height="10" rx="1" fill="white"/>
+        <rect x="20" y="10" width="3.5" height="13" rx="1" fill="white" opacity=".9"/>
+        <rect x="26" y="14" width="3.5" height="9" rx="1" fill="white" opacity=".7"/>
+        <rect x="18" y="26" width="2.5" height="5" rx="1" fill="rgba(255,255,255,.8)"/>
+        <rect x="12" y="31" width="14" height="2.5" rx="1.25" fill="rgba(255,255,255,.8)"/>
+        <circle cx="31" cy="8" r="2.5" fill="#10b981"/>
+      </svg>
+    </div>
+    <div id="lo-title">Reachout Command Center</div>
+    <div id="lo-ver" id="lo-ver-lbl">v2.0</div>
+    <div id="lo-bar-wrap"><div id="lo-bar"></div></div>
+    <div id="lo-status">Connecting to ReachOut…</div>
+  </div>
+<div id="progress-bar"></div>
+<div id="app">
+
+  <!-- ═══════════════ SIDEBAR ═══════════════ -->
+  <div class="sidebar" id="sidebar">
+    <div class="sb-header">
+      <div class="sb-logo">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Monitor screen -->
+          <rect x="1" y="2" width="20" height="13" rx="2" stroke="white" stroke-width="1.6" fill="none"/>
+          <!-- Screen inner glow -->
+          <rect x="3" y="4" width="16" height="9" rx="1" fill="rgba(255,255,255,0.15)"/>
+          <!-- Bar chart bars -->
+          <rect x="5" y="9" width="2" height="4" rx="0.5" fill="white" opacity="0.7"/>
+          <rect x="8.5" y="7" width="2" height="6" rx="0.5" fill="white"/>
+          <rect x="12" y="5.5" width="2" height="7.5" rx="0.5" fill="white"/>
+          <rect x="15.5" y="8" width="2" height="5" rx="0.5" fill="white" opacity="0.7"/>
+          <!-- Stand neck -->
+          <rect x="10" y="15" width="2" height="3" fill="white" opacity="0.8"/>
+          <!-- Stand base -->
+          <rect x="7" y="18" width="8" height="1.5" rx="0.75" fill="white" opacity="0.8"/>
+          <!-- Live dot -->
+          <circle cx="18.5" cy="4.5" r="1.5" fill="#10b981"/>
+        </svg>
+      </div>
+      <div class="sb-brand">
+        <div class="sb-name">Reachout</div>
+        <div class="sb-sub">Command Center</div>
+        <div class="sb-ver">v2.0</div>
+      </div>
+    </div>
+    <div class="sb-nav">
+      <div class="sb-sec">Monitor</div>
+      <div class="nav-item active" id="nav-dashboard" onclick="navTo('dashboard')">
+        <span class="nav-icon">📊</span><span class="nav-label">Dashboard</span>
+      </div>
+      <div class="nav-item" id="nav-devices" onclick="navTo('devices')">
+        <span class="nav-icon">🖥️</span><span class="nav-label">Devices</span>
+      </div>
+      <div class="nav-item" id="nav-divisions" onclick="navTo('divisions');renderDivisionsList();populateAssignSelects()">
+        <span class="nav-icon">📂</span><span class="nav-label">Divisions</span>
+        <span class="nav-badge" id="div-badge"></span>
+      </div>
+      <div class="sb-sec">Reports</div>
+      <div class="nav-item" id="nav-activity" onclick="navTo('activity')">
+        <span class="nav-icon">📋</span><span class="nav-label">Activity Log</span>
+      </div>
+      <div class="nav-item" id="nav-reports" onclick="navTo('reports')">
+        <span class="nav-icon">📁</span><span class="nav-label">Export</span>
+      </div>
+      <div class="sb-sec">System</div>
+      <div class="nav-item" id="nav-settings" onclick="navTo('settings')">
+        <span class="nav-icon">⚙️</span><span class="nav-label">Settings</span>
+      </div>
+    </div>
+    <div class="sb-footer">
+      <button class="sb-collapse-btn" onclick="toggleSidebar()">
+        <span class="collapse-chev">‹</span>
+        <span class="collapse-lbl">Collapse</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Mobile sidebar backdrop -->
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeMobileSidebar()"></div>
+
+  <!-- ═══════════════ MAIN ═══════════════ -->
+  <div class="main-wrap">
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <button class="mobile-menu-btn" id="mobile-menu-btn" onclick="toggleMobileSidebar()" aria-label="Open menu" title="Menu">☰</button>
+      <div class="tb-search" style="position:relative">
+        <span class="s-ico">🔍</span>
+        <input class="s-inp" id="global-search" placeholder="Search devices…" oninput="onSearchInput()" autocomplete="off" onkeydown="onSearchKeydown(event)">
+        <span class="s-clear" id="s-clear" onclick="clearSearch()">✕</span>
+        <div class="search-dropdown" id="search-dropdown"></div>
+      </div>
+      <div class="tb-divider"></div>
+      <div class="tb-live-stat"><span style="font-size:12px">🖥</span><span class="sval" id="nav-total">—</span>&nbsp;Total</div>
+      <div class="tb-live-stat"><span class="lb-dot g"></span><span class="sval" id="nav-online">—</span>&nbsp;Online</div>
+      <div class="tb-live-stat s-off"><span class="lb-dot r"></span><span class="sval" id="nav-offline">—</span>&nbsp;Offline</div>
+      <div class="tb-right">
+        <div class="sync-chip">
+          <div class="sync-dot" id="sync-dot"></div>
+          <span id="sync-lbl">—</span>
+        </div>
+        <div class="icon-btn" id="topbar-refresh-btn" onclick="refreshData()" title="Refresh data now">🔄</div>
+        <div class="icon-btn" onclick="reloadApp()" title="Reload entire application (Ctrl+Shift+R)" style="font-size:11px;font-weight:700;color:var(--t2)">↺</div>
+        <div class="icon-btn" onclick="clearNotifs()" title="Notifications">🔔<span class="nb" id="notif-badge"></span></div>
+        <div class="icon-btn" onclick="toggleDark()" title="Dark mode">🌙</div>
+        <div class="user-wrap" id="user-wrap">
+          <div class="user-btn" onclick="toggleUserMenu()">
+            <div class="user-av">R</div>
+            <span class="user-name">ReachOut</span>
+            <span style="font-size:10px;color:var(--t3)">▾</span>
+          </div>
+          <div class="user-menu" id="user-menu">
+            <div class="um-item" onclick="navTo('settings');closeUserMenu()">⚙️ Settings</div>
+            <div class="um-item" onclick="backupData();closeUserMenu()">💾 Backup Data</div>
+            <div class="um-sep"></div>
+            <div class="um-item" onclick="ipcRenderer.invoke('open-external','https://app.reachoutmediatech.info/admin');closeUserMenu()">🌐 Open Admin</div>
+            <div class="um-sep"></div>
+            <div class="um-item" onclick="reloadApp();closeUserMenu()" style="color:var(--primary);font-weight:600">🔄 Reload App <span style="font-size:10px;color:var(--t4);font-weight:400">(Ctrl+Shift+R)</span></div>
+            <div class="um-item" onclick="logout();closeUserMenu()">🚪 Sign Out</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════
+         PAGE WRAP
+    ════════════════════════════════════════ -->
+    <div class="page-wrap">
+
+      <!-- ═══ DASHBOARD ═══ -->
+      <div class="page active" id="page-dashboard">
+        <div class="page-hd">
+          <div>
+            <div class="page-title">Fleet Dashboard</div>
+            <div class="page-sub" id="db-sub-lbl">Connecting to ReachOut Admin Platform…</div>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-outline btn-sm" onclick="refreshData()">🔄 Sync Now</button>
+            <button class="btn btn-outline btn-sm" onclick="exportCSV()">⬇ CSV</button>
+            <button class="btn btn-primary btn-sm" onclick="exportXLSX()">⬇ XLSX</button>
+          </div>
+        </div>
+
+        <!-- ── Row 1: 5 KPI cards ── -->
+        <div class="db-kpi-row" style="margin-bottom:14px">
+          <div class="kpi-card k-blue" onclick="navToFilteredDevices('all','all')" style="cursor:pointer" title="View all devices">
+            <div class="kpi-top">
+              <div class="kpi-icon ik-blue">🌐</div>
+              <div class="kpi-trend kt-neut" id="kpi-total-trend">Fleet</div>
+            </div>
+            <div class="kpi-val" id="kpi-total">—</div>
+            <div class="kpi-lbl">Total Devices</div>
+            <div class="kpi-sub">Across all divisions</div>
+            <canvas class="kpi-spark" id="spark-total"></canvas>
+          </div>
+          <div class="kpi-card k-green" onclick="navToFilteredDevices('online','all')" style="cursor:pointer" title="View online devices">
+            <div class="kpi-top">
+              <div class="kpi-icon ik-green">✅</div>
+              <div class="kpi-trend kt-up" id="kpi-online-trend">Online</div>
+            </div>
+            <div class="kpi-val" id="kpi-online">—</div>
+            <div class="kpi-lbl">Online Now</div>
+            <div class="kpi-sub" id="kpi-online-sub">Responding normally</div>
+            <canvas class="kpi-spark" id="spark-online"></canvas>
+          </div>
+          <div class="kpi-card k-red" onclick="navToFilteredDevices('offline','all')" style="cursor:pointer" title="View offline devices">
+            <div class="kpi-top">
+              <div class="kpi-icon ik-red">🔴</div>
+              <div class="kpi-trend kt-dn" id="kpi-offline-trend">Offline</div>
+            </div>
+            <div class="kpi-val" id="kpi-offline">—</div>
+            <div class="kpi-lbl">Offline</div>
+            <div class="kpi-sub" id="kpi-offline-sub">Not responding</div>
+            <canvas class="kpi-spark" id="spark-offline"></canvas>
+          </div>
+          <div class="kpi-card k-amber" onclick="navTo('divisions');renderDivisionsList();populateAssignSelects()" style="cursor:pointer" title="View all divisions">
+            <div class="kpi-top">
+              <div class="kpi-icon ik-amber">📂</div>
+              <div class="kpi-trend kt-neut" id="kpi-divs-trend">Groups</div>
+            </div>
+            <div class="kpi-val" id="kpi-divs">—</div>
+            <div class="kpi-lbl">Divisions</div>
+            <div class="kpi-sub">Device groups</div>
+          </div>
+          <div class="kpi-card k-purple" onclick="navToFilteredDevices('all','all')" style="cursor:pointer" title="View fleet">
+            <div class="kpi-top">
+              <div class="kpi-icon ik-purple">💚</div>
+              <div class="kpi-trend" id="kpi-health-trend">Health</div>
+            </div>
+            <div class="kpi-val" id="kpi-pct">—</div>
+            <div class="kpi-lbl">Fleet Health</div>
+            <div class="kpi-sub">Online percentage</div>
+            <canvas class="kpi-spark" id="spark-health"></canvas>
+          </div>
+        </div>
+
+        <!-- ── Row 2: Fleet health band ── -->
+        <div class="health-band" style="margin-bottom:14px">
+          <span class="hb-label">Fleet Health</span>
+          <div class="hb-track"><div id="health-bar" class="hb-fill hf-good" style="width:0%"></div></div>
+          <span class="hb-pct" id="hb-pct">—</span>
+          <span class="hb-badge" id="hb-badge" style="background:var(--green-bg);color:var(--green2)">Loading…</span>
+          <span class="hb-meta">Poll: <span id="kpi-poll">—</span>s &nbsp;·&nbsp; <span id="kpi-clock">—</span></span>
+        </div>
+
+        <!-- ── Row 3: 4 Monitoring Insight cards ── -->
+        <div class="db-insights-row" style="margin-bottom:14px">
+
+          <!-- Uptime Since Last Sync -->
+          <div class="s-card">
+            <div class="s-card-hd">
+              <span class="s-card-title">⏱ Last Sync</span>
+              <span class="s-card-sub" id="sync-age-lbl">—</span>
+            </div>
+            <div class="s-card-body" style="padding:12px 16px">
+              <div style="font-family:var(--fm);font-size:24px;font-weight:800;color:var(--primary);letter-spacing:-.5px" id="sync-time-big">—</div>
+              <div style="font-size:11px;color:var(--t3);margin-top:4px">Poll interval: <span id="poll-interval-lbl">—</span>s</div>
+              <div style="margin-top:10px;height:4px;background:var(--surface4);border-radius:999px;overflow:hidden">
+                <div id="poll-countdown-bar" style="height:100%;background:linear-gradient(90deg,var(--primary),var(--primary3));border-radius:999px;transition:width 1s linear;width:100%"></div>
+              </div>
+              <div style="font-size:10px;color:var(--t4);margin-top:3px">Next poll in <span id="next-poll-lbl">—</span>s</div>
+            </div>
+          </div>
+
+          <!-- Status Change Rate -->
+          <div class="s-card" onclick="navTo('activity')" style="cursor:pointer" title="View activity log">
+            <div class="s-card-hd">
+              <span class="s-card-title">📡 Status Changes</span>
+              <span class="s-card-sub">This session</span>
+            </div>
+            <div class="s-card-body" style="padding:12px 16px">
+              <div style="display:flex;gap:10px;margin-bottom:10px">
+                <div style="flex:1;background:var(--red-bg);border-radius:8px;padding:8px;text-align:center">
+                  <div style="font-family:var(--fm);font-size:20px;font-weight:800;color:var(--red)" id="stat-went-offline">0</div>
+                  <div style="font-size:10px;color:var(--t3);margin-top:2px">Went Offline</div>
+                </div>
+                <div style="flex:1;background:var(--green-bg);border-radius:8px;padding:8px;text-align:center">
+                  <div style="font-family:var(--fm);font-size:20px;font-weight:800;color:var(--green)" id="stat-came-online">0</div>
+                  <div style="font-size:10px;color:var(--t3);margin-top:2px">Came Online</div>
+                </div>
+              </div>
+              <div style="font-size:11px;color:var(--t3)">Total polls: <span style="font-weight:700;color:var(--t2)" id="stat-polls">0</span></div>
+            </div>
+          </div>
+
+          <!-- Most Affected Division -->
+          <div class="s-card" onclick="navToMostAffected()" style="cursor:pointer" title="View most affected division">
+            <div class="s-card-hd">
+              <span class="s-card-title">⚠️ Most Affected</span>
+              <span class="s-card-sub">Highest offline count</span>
+            </div>
+            <div class="s-card-body" style="padding:12px 16px">
+              <div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="most-affected-div">—</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                <span style="font-family:var(--fm);font-size:22px;font-weight:800;color:var(--red)" id="most-affected-cnt">—</span>
+                <span style="font-size:11px;color:var(--t3)">devices offline</span>
+              </div>
+              <div style="height:4px;background:var(--surface4);border-radius:999px;overflow:hidden">
+                <div id="most-affected-bar" style="height:100%;background:var(--red);border-radius:999px;width:0%;transition:width .5s"></div>
+              </div>
+              <div style="font-size:10px;color:var(--t4);margin-top:3px" id="most-affected-pct">— % of division offline</div>
+              <div style="font-size:10px;color:var(--primary);margin-top:6px;font-weight:600">Click to view →</div>
+            </div>
+          </div>
+
+          <!-- Top Online Division -->
+          <div class="s-card" onclick="navTo('divisions');renderDivisionsList();populateAssignSelects()" style="cursor:pointer" title="View all divisions">
+            <div class="s-card-hd">
+              <span class="s-card-title">🏆 Best Division</span>
+              <span class="s-card-sub">Highest health %</span>
+            </div>
+            <div class="s-card-body" style="padding:12px 16px">
+              <div style="font-size:13px;font-weight:700;color:var(--t1);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="best-div-name">—</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                <span style="font-family:var(--fm);font-size:22px;font-weight:800;color:var(--green)" id="best-div-pct">—</span>
+                <span style="font-size:11px;color:var(--t3)">health score</span>
+              </div>
+              <div style="height:4px;background:var(--surface4);border-radius:999px;overflow:hidden">
+                <div id="best-div-bar" style="height:100%;background:var(--green);border-radius:999px;width:0%;transition:width .5s"></div>
+              </div>
+              <div style="font-size:10px;color:var(--t4);margin-top:3px" id="best-div-sub">— of — devices online</div>
+              <div style="font-size:10px;color:var(--primary);margin-top:6px;font-weight:600">Click to view →</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Row 4: Lower widgets ── -->
+        <div class="db-lower-row" style="margin-bottom:14px">
+
+          <!-- Division Health List -->
+          <div class="s-card">
+            <div class="s-card-hd" onclick="navTo('divisions');renderDivisionsList();populateAssignSelects()" style="cursor:pointer" title="View all divisions">
+              <span class="s-card-title">📂 Divisions</span>
+              <span class="s-card-sub"><span id="db-div-count">—</span> groups</span>
+              <span style="margin-left:auto;font-size:10px;color:var(--primary);font-weight:600">View All →</span>
+            </div>
+            <div class="s-card-body np">
+              <div class="div-health-list" id="db-div-list">
+                <div class="af-empty">Loading divisions…</div>
+              </div>
+            </div>
+            <div class="mini-stat-row" id="db-div-mini"></div>
+          </div>
+
+          <!-- Offline Devices -->
+          <div class="s-card">
+            <div class="s-card-hd" onclick="navToFilteredDevices('offline','all')" style="cursor:pointer" title="View all offline devices">
+              <span class="s-card-title">⚠️ Offline Devices</span>
+              <span class="s-card-sub" id="db-offline-cnt">—</span>
+              <span style="margin-left:auto;font-size:10px;color:var(--primary);font-weight:600">View All →</span>
+            </div>
+            <div class="s-card-body np">
+              <div class="offline-list" id="db-offline-list">
+                <div class="af-empty">Loading…</div>
+              </div>
+            </div>
+            <div class="mini-stat-row" id="db-offline-mini"></div>
+          </div>
+
+          <!-- Live Activity -->
+          <div class="s-card">
+            <div class="s-card-hd">
+              <span class="s-card-title" onclick="navTo('activity')" style="cursor:pointer" title="View full activity log">📋 Live Activity</span>
+              <span class="ap-count" id="act-count" style="font-size:11px;color:var(--t3);background:var(--surface2);padding:1px 7px;border-radius:999px">0</span>
+              <div style="margin-left:auto;display:flex;gap:6px">
+                <div class="act-search-wrap" style="width:130px">
+                  <span style="font-size:11px;color:var(--t3)">🔍</span>
+                  <input placeholder="Filter…" id="act-search" oninput="renderActPanel()">
+                </div>
+                <button class="act-toggle-btn" id="act-toggle-btn" onclick="toggleActPanel()" style="font-size:11px;padding:2px 6px;border:none;background:none;cursor:pointer;color:var(--t3)">▲</button>
+              </div>
+            </div>
+            <div class="s-card-body np">
+              <div class="act-feed" id="act-list">
+                <div class="af-empty">No events yet.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Row 5: Full Device Table ── -->
+        <div class="tbl-wrap">
+          <div class="tbl-hd">
+            <span class="tbl-title">All Devices</span>
+            <div class="filter-bar">
+              <button class="filter-btn active" data-sf="all"     onclick="setFilter('all',this)">All</button>
+              <button class="filter-btn"        data-sf="online"  onclick="setFilter('online',this)">Online</button>
+              <button class="filter-btn"        data-sf="offline" onclick="setFilter('offline',this)">Offline</button>
+            </div>
+            <div class="tbl-right">
+              <div class="tbl-loader" id="table-loader"><div class="spin-sm"></div><span id="loader-text">Loading…</span></div>
+              <button class="btn btn-outline btn-sm" onclick="refreshData()">🔄 Refresh</button>
+              <button class="btn btn-outline btn-sm" onclick="exportCSV()">⬇ CSV</button>
+              <button class="btn btn-outline btn-sm" onclick="exportXLSX()">⬇ XLSX</button>
+            </div>
+          </div>
+          <div id="sel-bar">
+            <span id="sel-count">0 selected</span>
+            <button class="btn btn-outline btn-xs" onclick="clearSel()">Clear</button>
+            <button class="btn btn-outline btn-xs" onclick="exportXLSX()">Export Selected</button>
+          </div>
+          <div class="div-tags-wrap" id="div-tags-wrap"></div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width:32px"><input type="checkbox" onclick="selectAll()"></th>
+                <th data-sort="name" onclick="setSort('name')" style="cursor:pointer">Device<span class="sort-icon"> ⇅</span></th>
+                <th data-sort="online" onclick="setSort('online')" style="cursor:pointer">Status<span class="sort-icon"> ⇅</span></th>
+                <th data-sort="uptime" onclick="setSort('uptime')" style="cursor:pointer">Uptime<span class="sort-icon"> ⇅</span></th>
+                <th data-sort="division" onclick="setSort('division')" style="cursor:pointer">Division<span class="sort-icon"> ⇅</span></th>
+                <th data-sort="last" onclick="setSort('last')" style="cursor:pointer">Last Seen<span class="sort-icon"> ⇅</span></th>
+                <th>Total Uptime</th>
+                <th style="width:70px"></th>
+              </tr>
+            </thead>
+            <tbody id="device-tbody"><tr><td colspan="8" class="empty-row">Connecting to ReachOut…</td></tr></tbody>
+          </table>
+        </div>
+      </div><!-- /dashboard -->
+
+      <!-- ═══ DEVICES PAGE ═══ -->
+      <div class="page" id="page-devices">
+        <div class="page-hd">
+          <div><div class="page-title">Device Fleet</div><div class="page-sub">All devices from app.reachoutmediatech.info/admin</div></div>
+          <div class="page-actions">
+            <button class="btn btn-outline btn-sm" onclick="refreshData()">🔄 Refresh</button>
+            <button class="btn btn-outline btn-sm" onclick="exportCSV()">⬇ CSV</button>
+            <button class="btn btn-primary btn-sm" onclick="exportXLSX()">⬇ XLSX</button>
+          </div>
+        </div>
+        <div class="tbl-wrap">
+          <div class="tbl-hd">
+            <div class="filter-bar">
+              <button class="filter-btn active" data-sf="all"    onclick="setFilter('all',this)">All</button>
+              <button class="filter-btn" data-sf="online"        onclick="setFilter('online',this)">Online</button>
+              <button class="filter-btn" data-sf="offline"       onclick="setFilter('offline',this)">Offline</button>
+            </div>
+            <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+              <span id="dev-count2" style="font-size:11.5px;color:var(--t3)"></span>
+              <button id="adv-filter-btn" class="btn btn-outline btn-sm" onclick="toggleAdvFilter()" style="position:relative">
+                🔽 Filters
+                <span id="adv-filter-badge" style="display:none;position:absolute;top:-5px;right:-5px;background:var(--primary);color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:999px;align-items:center;justify-content:center;padding:0 3px"></span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Advanced filter panel -->
+          <div id="adv-filter-panel" style="display:none;flex-direction:column;gap:0;background:var(--surface2);border-bottom:2px solid var(--border)">
+
+            <!-- Row 1: Offline Duration Presets -->
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 14px 8px;flex-wrap:wrap;border-bottom:1px solid var(--border)">
+              <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);white-space:nowrap">⏱ Offline Duration</span>
+              <button class="preset-chip" onclick="setOfflinePreset('5',this)">Above 5h</button>
+              <button class="preset-chip" onclick="setOfflinePreset('10',this)">Above 10h</button>
+              <button class="preset-chip" onclick="setOfflinePreset('15',this)">Above 15h</button>
+              <button class="preset-chip" onclick="setOfflinePreset('24',this)">Above 1 day</button>
+              <button class="preset-chip" onclick="setOfflinePreset('48',this)">Above 2 days</button>
+              <button class="preset-chip" onclick="setOfflinePreset('168',this)">Above 1 week</button>
+              <select id="adv-filter-preset" onchange="setOfflinePreset(this.value, null)" style="height:26px;padding:0 8px;border:1px solid var(--border);border-radius:var(--r);font-size:11.5px;font-family:var(--f);color:var(--t1);background:var(--surface);margin-left:4px">
+                <option value="">Custom threshold…</option>
+                <option value="1">Above 1h</option>
+                <option value="2">Above 2h</option>
+                <option value="5">Above 5h</option>
+                <option value="10">Above 10h</option>
+                <option value="15">Above 15h</option>
+                <option value="20">Above 20h</option>
+                <option value="24">Above 1 day (24h)</option>
+                <option value="48">Above 2 days (48h)</option>
+                <option value="72">Above 3 days (72h)</option>
+                <option value="120">Above 5 days</option>
+                <option value="168">Above 1 week</option>
+              </select>
+            </div>
+
+            <!-- Row 2: Custom Date/Time range + text filters -->
+            <div style="display:flex;align-items:flex-end;gap:10px;padding:8px 14px 10px;flex-wrap:wrap">
+              <div style="display:flex;flex-direction:column;gap:3px">
+                <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3)">Last Seen — From</label>
+                <input id="adv-filter-dt-from" type="datetime-local" oninput="applyAdvFilter()"
+                  style="height:30px;padding:0 8px;border:1px solid var(--border);border-radius:var(--r);font-size:11.5px;color:var(--t1);background:var(--surface);outline:none;font-family:var(--f)">
+              </div>
+              <div style="display:flex;flex-direction:column;gap:3px">
+                <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3)">Last Seen — To</label>
+                <input id="adv-filter-dt-to" type="datetime-local" oninput="applyAdvFilter()"
+                  style="height:30px;padding:0 8px;border:1px solid var(--border);border-radius:var(--r);font-size:11.5px;color:var(--t1);background:var(--surface);outline:none;font-family:var(--f)">
+              </div>
+              <div style="width:1px;height:30px;background:var(--border);margin:0 2px;align-self:flex-end"></div>
+              <div style="display:flex;flex-direction:column;gap:3px">
+                <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3)">Date-only From</label>
+                <input id="adv-filter-from" type="date" oninput="applyAdvFilter()"
+                  style="height:30px;padding:0 8px;border:1px solid var(--border);border-radius:var(--r);font-size:11.5px;color:var(--t1);background:var(--surface);outline:none;font-family:var(--f)">
+              </div>
+              <div style="display:flex;flex-direction:column;gap:3px">
+                <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3)">Date-only To</label>
+                <input id="adv-filter-to" type="date" oninput="applyAdvFilter()"
+                  style="height:30px;padding:0 8px;border:1px solid var(--border);border-radius:var(--r);font-size:11.5px;color:var(--t1);background:var(--surface);outline:none;font-family:var(--f)">
+              </div>
+              <div style="width:1px;height:30px;background:var(--border);margin:0 2px;align-self:flex-end"></div>
+              <div style="display:flex;flex-direction:column;gap:3px">
+                <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3)">Uptime contains</label>
+                <input id="adv-filter-uptime" placeholder="e.g. 9h, 2d, 30m" oninput="applyAdvFilter()"
+                  style="height:30px;padding:0 10px;border:1px solid var(--border);border-radius:var(--r);font-size:12px;font-family:var(--fm);color:var(--t1);background:var(--surface);width:130px;outline:none">
+              </div>
+              <div style="display:flex;flex-direction:column;gap:3px">
+                <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3)">Last Seen text</label>
+                <input id="adv-filter-lastseen" placeholder="e.g. 2025, 14:00" oninput="applyAdvFilter()"
+                  style="height:30px;padding:0 10px;border:1px solid var(--border);border-radius:var(--r);font-size:12px;font-family:var(--fm);color:var(--t1);background:var(--surface);width:130px;outline:none">
+              </div>
+              <button class="btn btn-outline btn-sm" onclick="clearAdvFilter()" style="height:30px;margin-left:auto;white-space:nowrap">✕ Clear All</button>
+            </div>
+          </div>
+
+          <div class="div-tags-wrap" id="div-tags-wrap2"></div>
+          <table>
+            <thead><tr>
+              <th data-sort="name" onclick="setSort('name')" style="cursor:pointer">Device<span class="sort-icon"> ⇅</span></th>
+              <th data-sort="online" onclick="setSort('online')" style="cursor:pointer">Status<span class="sort-icon"> ⇅</span></th>
+              <th data-sort="uptime" onclick="setSort('uptime')" style="cursor:pointer">Uptime<span class="sort-icon"> ⇅</span></th>
+              <th data-sort="division" onclick="setSort('division')" style="cursor:pointer">Division<span class="sort-icon"> ⇅</span></th>
+              <th data-sort="last" onclick="setSort('last')" style="cursor:pointer">Last Seen<span class="sort-icon"> ⇅</span></th>
+              <th>Total Uptime</th>
+              <th style="width:70px"></th>
+            </tr></thead>
+            <tbody id="device-tbody2"><tr><td colspan="7" class="empty-row">Loading devices…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ═══ DIVISIONS PAGE ═══ -->
+      <div class="page" id="page-divisions">
+        <div class="page-hd">
+          <div><div class="page-title">Divisions</div><div class="page-sub">Auto-detected · <span id="div-total-count">0</span> divisions</div></div>
+          <div class="page-actions">
+            <div class="tb-search" style="width:200px"><span class="s-ico">🔍</span><input class="s-inp" id="div-search" placeholder="Search divisions…" oninput="renderDivisionsList()"></div>
+            <button class="btn btn-outline btn-sm" onclick="exportSelectedDivisionsXLSX()">⬇ Export XLSX</button>
+            <button class="btn btn-outline btn-sm" onclick="exportCSV()">⬇ CSV</button>
+            <button class="btn btn-outline btn-sm" onclick="exportXLSX()">⬇ XLSX</button>
+          </div>
+        </div>
+        <div class="div-summary-bar" id="div-summary-bar"></div>
+        <div class="div-cards-grid" id="divisions-list"></div>
+      </div>
+
+      <!-- ═══ ACTIVITY PAGE ═══ -->
+      <div class="page" id="page-activity">
+        <div class="page-hd">
+          <div><div class="page-title">Activity Log</div><div class="page-sub" id="act-page-cnt">0 events</div></div>
+          <div class="page-actions">
+            <button class="btn btn-outline btn-sm" onclick="downloadLog()">⬇ Download</button>
+            <button class="btn btn-danger btn-sm" onclick="clearLog()">🗑 Clear</button>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <div class="af-bar">
+            <button class="af-btn active" data-af="all"  onclick="setActF('all',this)">All</button>
+            <button class="af-btn"        data-af="ok"   onclick="setActF('ok',this)">Online</button>
+            <button class="af-btn"        data-af="err"  onclick="setActF('err',this)">Offline</button>
+            <button class="af-btn"        data-af="warn" onclick="setActF('warn',this)">Warn</button>
+            <button class="af-btn"        data-af="info" onclick="setActF('info',this)">Info</button>
+          </div>
+          <div class="act-search-wrap" style="flex:1;max-width:280px">
+            <span style="font-size:11px;color:var(--t3)">🔍</span>
+            <input id="act-page-s" placeholder="Search events…" oninput="renderActPage()" style="width:100%">
+          </div>
+        </div>
+        <div id="act-page-list"></div>
+      </div>
+
+      
+
+      <!-- ═══ EXPORT PAGE ═══ -->
+      <div class="page" id="page-reports">
+        <div class="page-hd"><div><div class="page-title">Export Reports</div><div class="page-sub">Download fleet data in various formats</div></div></div>
+        <div class="rpt-grid">
+          <div class="rpt-card" onclick="rptDownload('all')"><div class="rpt-icon">📊</div><div class="rpt-title">Full Fleet XLSX</div><div class="rpt-sub">All devices with status, uptime, and division in a multi-sheet workbook.</div></div>
+          <div class="rpt-card" onclick="exportCSV()"><div class="rpt-icon">📄</div><div class="rpt-title">Fleet CSV</div><div class="rpt-sub">Simple CSV of all devices — easy to open in Excel or Sheets.</div></div>
+          <div class="rpt-card" onclick="rptDownload('offline')"><div class="rpt-icon">🔴</div><div class="rpt-title">Offline Devices</div><div class="rpt-sub">XLSX report of only offline devices.</div></div>
+          <div class="rpt-card" onclick="rptDownload('divisions')"><div class="rpt-icon">📂</div><div class="rpt-title">Division Report</div><div class="rpt-sub">Per-division sheets with device status breakdown.</div></div>
+          <div class="rpt-card" onclick="rptDownload('health')"><div class="rpt-icon">❤️</div><div class="rpt-title">Health Summary</div><div class="rpt-sub">Fleet health % per division — CSV format.</div></div>
+          <div class="rpt-card" onclick="backupData()"><div class="rpt-icon">💾</div><div class="rpt-title">Full Backup</div><div class="rpt-sub">JSON backup of all uptime history, division config, and logs.</div></div>
+        </div>
+      </div>
+
+      <!-- ═══ SETTINGS ═══ -->
+      <div class="page" id="page-settings">
+        <div class="page-hd"><div><div class="page-title">Settings</div><div class="page-sub">Reachout Command Center v2.0</div></div></div>
+        <div class="card">
+          <div class="form-sec">
+            <div class="fg">
+              <label class="fg-lbl">Web App URL</label>
+              <div style="display:flex;gap:6px">
+                <input class="fg-inp" id="s-url" type="url" placeholder="https://script.google.com/…" style="flex:1">
+                <button class="btn btn-outline btn-sm" onclick="testScriptUrl()">Test</button>
+              </div>
+              <div class="fg-sub">Deploy your Google Apps Script → New Deployment → Web App → copy URL here.</div>
+              <div id="s-url-test-result" style="margin-top:6px;font-size:12px;display:none"></div>
+            </div>
+          </div>
+          <div class="form-sec">
+            <div class="form-sec-title">🔄 Polling</div>
+            <div class="fg"><label class="fg-lbl">Poll Interval (seconds)</label><input class="fg-inp" id="s-poll" type="number" min="5" value="60" style="width:100px"><div class="fg-sub">How often to fetch data. Minimum: 5s.</div></div>
+          </div>
+          <div class="form-sec">
+            <div class="form-sec-title">🔔 Notifications</div>
+            <div class="fg-check"><input type="checkbox" id="s-notif-os" checked><label for="s-notif-os">Enable OS desktop notifications</label></div>
+            <div class="fg-check"><input type="checkbox" id="s-notif-offline" checked><label for="s-notif-offline">Notify when a device goes <strong>Offline</strong></label></div>
+            <div class="fg-check"><input type="checkbox" id="s-notif-online" checked><label for="s-notif-online">Notify when a device comes back <strong>Online</strong></label></div>
+            <div class="fg-check"><input type="checkbox" id="s-notif-warn" checked><label for="s-notif-warn">Notify on <strong>Warnings</strong></label></div>
+            <div class="fg-check"><input type="checkbox" id="s-notif-silent"><label for="s-notif-silent">Silent notifications (no sound)</label></div>
+            <button class="btn btn-outline btn-sm" style="margin-top:6px" onclick="testNotification()">🔔 Test Notification</button>
+          </div>
+          <div class="form-sec">
+            <div class="form-sec-title">⚙️ Automation</div>
+            <div class="fg-check"><input type="checkbox" id="s-autostart"><label for="s-autostart">Auto-start monitoring on launch</label></div>
+            <div class="fg-check"><input type="checkbox" id="s-sound" checked><label for="s-sound">Sound alerts for online/offline transitions</label></div>
+          </div>
+          <div class="form-sec">
+            <div class="form-sec-title">💾 Storage</div>
+            <div class="fg-sub">Data file location:</div>
+            <div class="storage-info" id="storage-info">—</div>
+          </div>
+          <div class="form-sec">
+            <div class="form-sec-title">🔐 Session</div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-outline btn-sm" onclick="ipcRenderer.invoke('open-external','https://app.reachoutmediatech.info/admin')">🌐 Open ReachOut Admin</button>
+              <button class="btn btn-danger btn-sm" onclick="logout()">🚪 Sign Out & Clear Session</button>
+              <button class="btn btn-danger btn-sm" onclick="resetAll()">🗑 Reset ALL Data</button>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" onclick="applySettings()">✓ Save & Apply</button>
+            <button class="btn btn-outline" onclick="loadSettings()">↺ Reset</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /page-wrap -->
+  </div><!-- /main-wrap -->
+</div><!-- /app -->
+
+<!-- DEVICE MODAL — Full History View -->
+<div class="modal-overlay" id="device-modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box" style="width:760px;max-height:92vh">
+    <!-- Header -->
+    <div class="modal-hd" style="padding:16px 22px">
+      <div class="modal-hd-l">
+        <div class="modal-av" id="modal-av" style="font-size:14px;font-weight:700">A</div>
+        <div>
+          <div class="modal-title" id="modal-name" style="font-size:17px">Device</div>
+          <div class="modal-sub" id="modal-sub">—</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;margin-right:8px">
+        <span id="modal-status-pill" class="status-pill pill-off">—</span>
+        <button class="btn btn-outline btn-xs" id="modal-ref-btn">↺ Refresh</button>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+
+    <!-- Tab bar -->
+    <div style="display:flex;border-bottom:1px solid var(--border);background:var(--surface2)">
+      <button class="modal-tab active" id="mtab-overview" onclick="switchModalTab('overview')">📊 Overview</button>
+      <button class="modal-tab" id="mtab-history" onclick="switchModalTab('history')">📅 History Timeline</button>
+      <button class="modal-tab" id="mtab-activity" onclick="switchModalTab('activity')">📋 Activity Logs</button>
+      <button class="modal-tab" id="mtab-connectivity" onclick="switchModalTab('connectivity')">🔌 Connectivity</button>
+    </div>
+
+    <div class="modal-body" style="padding:0;gap:0">
+
+      <!-- ── TAB: Overview ── -->
+      <div id="mtab-content-overview" class="modal-tab-content active" style="padding:18px 22px;display:flex;flex-direction:column;gap:14px">
+        <!-- 6 stat boxes -->
+        <div class="modal-stats" id="modal-stats"></div>
+        <!-- Availability bar -->
+        <div class="ubar-wrap">
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+            <span class="ubar-lbl">Session Availability</span>
+            <span style="font-size:12px;font-weight:700;color:var(--t2)" id="modal-avail-pct">—</span>
+          </div>
+          <div class="ubar" id="modal-bar" style="height:14px;border-radius:8px"></div>
+          <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--t4)">
+            <span>0% Offline</span><span>100% Online</span>
+          </div>
+        </div>
+        <!-- Session Status Timeline Bar -->
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="font-size:12px;font-weight:700;color:var(--t2)">📊 Status History</div>
+            <div style="display:flex;align-items:center;gap:10px;font-size:10px;color:var(--t3)">
+              <span style="display:flex;align-items:center;gap:3px"><span style="width:10px;height:10px;background:var(--green);border-radius:2px;display:inline-block"></span>Online</span>
+              <span style="display:flex;align-items:center;gap:3px"><span style="width:10px;height:10px;background:var(--red);border-radius:2px;display:inline-block"></span>Offline</span>
+            </div>
+          </div>
+          <div id="modal-status-bar" style="width:100%;border-radius:8px;overflow:hidden;border:1px solid var(--border);background:var(--surface2);min-height:52px;display:flex;align-items:stretch"></div>
+          <div id="modal-status-legend" style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--t4)"></div>
+        </div>
+      </div>
+
+      <!-- ── TAB: History Timeline ── -->
+      <div id="mtab-content-history" class="modal-tab-content" style="padding:0;display:none">
+        <div style="padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;background:var(--surface2)">
+          <span style="font-size:12px;font-weight:600;color:var(--t2)">Status changes this session</span>
+          <span style="margin-left:auto;font-size:11px;color:var(--t3)" id="hist-count-lbl">— events</span>
+          <select id="hist-filter-sel" onchange="renderModalHistory()" style="font-size:11px;padding:3px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--t2);font-family:var(--f)">
+            <option value="all">All Events</option>
+            <option value="online">Online only</option>
+            <option value="offline">Offline only</option>
+          </select>
+        </div>
+        <!-- Visual timeline -->
+        <div id="modal-timeline" style="padding:16px 22px;max-height:340px;overflow-y:auto"></div>
+      </div>
+
+      <!-- ── TAB: Activity Logs ── -->
+      <div id="mtab-content-activity" class="modal-tab-content" style="padding:0;display:none">
+        <div style="padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;background:var(--surface2)">
+          <span style="font-size:12px;font-weight:600;color:var(--t2)">All activity for this device</span>
+          <input id="modal-act-search" placeholder="Search…" oninput="renderModalActivity()"
+            style="margin-left:auto;font-size:11.5px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--t1);font-family:var(--f);width:160px;outline:none">
+        </div>
+        <div id="modal-activity-list" style="max-height:340px;overflow-y:auto;padding:8px 18px"></div>
+      </div>
+
+      <!-- ── TAB: Connectivity ── -->
+      <div id="mtab-content-connectivity" class="modal-tab-content" style="padding:18px 22px;display:none">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px" id="modal-connectivity"></div>
+      </div>
+
+    </div><!-- /modal-body -->
+
+    <div class="modal-ft" style="padding:12px 22px">
+      <span style="font-size:11px;color:var(--t3)" id="modal-last-updated">Last updated: —</span>
+      <div style="margin-left:auto;display:flex;gap:6px">
+        <button class="btn btn-outline btn-sm" id="modal-exp-btn">⬇ Export Report</button>
+        <button class="btn btn-primary btn-sm" onclick="closeModal()">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DIVISION EXPLORE MODAL -->
+<div class="modal-overlay" id="div-explore-modal">
+  <div class="modal-box" style="width:700px;max-height:88vh">
+    <div class="modal-hd">
+      <div class="modal-hd-l">
+        <div class="modal-av" id="dem-av" style="border-radius:10px;font-size:14px">📂</div>
+        <div><div class="modal-title" id="dem-name">Division</div><div class="modal-sub" id="dem-sub">Loading…</div></div>
+      </div>
+      <div style="display:flex;gap:6px;margin-right:8px">
+        <button class="btn btn-outline btn-sm" onclick="setFilter('all',null);divFilter=$('dem-name').textContent;navTo('devices');closeDivExplore()">Open in Devices ↗</button>
+      </div>
+      <button class="modal-close" onclick="closeDivExplore()">✕</button>
+    </div>
+    <div id="dem-stats" style="display:flex;gap:0;border-bottom:1px solid var(--border)">
+      <div class="dem-stat"><div class="dem-stat-v" id="dem-total">—</div><div class="dem-stat-l">Total</div></div>
+      <div class="dem-stat"><div class="dem-stat-v c-green" id="dem-online">—</div><div class="dem-stat-l">Online</div></div>
+      <div class="dem-stat"><div class="dem-stat-v c-red" id="dem-offline">—</div><div class="dem-stat-l">Offline</div></div>
+      <div class="dem-stat"><div class="dem-stat-v" id="dem-pct">—</div><div class="dem-stat-l">Health</div></div>
+    </div>
+    <div style="display:flex;gap:4px;padding:10px 18px;border-bottom:1px solid var(--border)">
+      <button class="filter-btn active" onclick="filterDemDevices('all',this)">All</button>
+      <button class="filter-btn" onclick="filterDemDevices('online',this)">Online</button>
+      <button class="filter-btn" onclick="filterDemDevices('offline',this)">Offline</button>
+      <input class="s-inp" id="dem-search" placeholder="Search devices…" oninput="renderDemList()" style="margin-left:auto;border:1px solid var(--border);border-radius:var(--r);padding:4px 10px;font-size:12px;width:180px">
+    </div>
+    <div class="modal-body" style="padding:0">
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr>
+          <th style="padding:9px 16px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--t3);background:var(--surface2);text-align:left;border-bottom:1px solid var(--border)">Device</th>
+          <th style="padding:9px 16px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--t3);background:var(--surface2);text-align:left;border-bottom:1px solid var(--border)">Status</th>
+          <th style="padding:9px 16px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--t3);background:var(--surface2);text-align:left;border-bottom:1px solid var(--border)">Uptime</th>
+          <th style="padding:9px 16px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--t3);background:var(--surface2);text-align:left;border-bottom:1px solid var(--border)">Last Seen</th>
+          <th style="padding:9px 16px;background:var(--surface2);border-bottom:1px solid var(--border);width:60px"></th>
+        </tr></thead>
+        <tbody id="dem-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+
+<div id="toast"></div>
+<script>
+// ── Mobile sidebar drawer (UI-only; does not touch app state/logic) ──
+function toggleMobileSidebar(){
+  const sb = document.getElementById('sidebar');
+  const ov = document.getElementById('sidebar-overlay');
+  if(!sb || !ov) return;
+  const opening = !sb.classList.contains('mobile-open');
+  sb.classList.toggle('mobile-open', opening);
+  ov.classList.toggle('show', opening);
+  document.body.classList.toggle('no-scroll', opening);
+}
+function closeMobileSidebar(){
+  const sb = document.getElementById('sidebar');
+  const ov = document.getElementById('sidebar-overlay');
+  if(!sb || !ov) return;
+  sb.classList.remove('mobile-open');
+  ov.classList.remove('show');
+  document.body.classList.remove('no-scroll');
+}
+// Auto-close the drawer after tapping a nav item on mobile (event delegation,
+// so existing onclick="navTo(...)" handlers on nav items are untouched)
+document.addEventListener('DOMContentLoaded', function(){
+  const nav = document.querySelector('.sb-nav');
+  if(nav){
+    nav.addEventListener('click', function(e){
+      if(e.target.closest('.nav-item') && window.matchMedia('(max-width:900px)').matches){
+        closeMobileSidebar();
+      }
+    });
+  }
+  // Keep drawer state sane if the device is rotated / resized to desktop width
+  window.addEventListener('resize', function(){
+    if(window.innerWidth > 900) closeMobileSidebar();
+  });
+});
+
+async function testNotification() {
+  const result = await ipcRenderer.invoke('show-notification',{title:'🔔 Reachout Command Center v2.0',body:'Test notification — ReachOut edition working!',silent:false});
+  if(typeof showToast==='function'){if(result?.reason==='not-supported')showToast('⚠️ OS notifications not supported');else showToast('✅ Test notification sent!');}
+}
+</script>
+<script src="dashboard.js"></script>
+</body>
+</html>
