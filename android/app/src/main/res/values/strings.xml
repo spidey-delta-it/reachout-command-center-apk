@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Reachout Command Center</string>
+    <string name="title_activity_main">Reachout Command Center</string>
+    <string name="package_name">com.reachoutmediatech.commandcenter</string>
+    <string name="custom_url_scheme">com.reachoutmediatech.commandcenter</string>
+</resources>
