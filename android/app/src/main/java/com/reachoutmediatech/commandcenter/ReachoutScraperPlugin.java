@@ -19,6 +19,8 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 /**
@@ -60,6 +62,53 @@ public class ReachoutScraperPlugin extends Plugin {
     private boolean sessionEstablished = false;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
+    // ── JS→native result bridge ──────────────────────────────────────────
+    // Android's WebView.evaluateJavascript() does NOT wait for a script's
+    // Promise to settle — if the script's completion value is a pending
+    // Promise, WebView immediately JSON-serializes it (a Promise has no own
+    // enumerable properties, so it serializes to the literal string "{}").
+    // This bit us for both the login POST and the extraction script, since
+    // both are async. The fix: never rely on evaluateJavascript's own return
+    // value for async work — instead, chain `.then()`/`.catch()` inside the
+    // page's JS to call back into this @JavascriptInterface once the Promise
+    // actually resolves/rejects.
+    private final ConcurrentHashMap<String, Consumer<String>> pendingCallbacks = new ConcurrentHashMap<>();
+    private final AtomicInteger callIdSeq = new AtomicInteger(0);
+
+    private class JsBridge {
+        @android.webkit.JavascriptInterface
+        public void deliver(String callId, String result) {
+            final Consumer<String> cb = pendingCallbacks.remove(callId);
+            if (cb != null) mainHandler.post(() -> cb.accept(result));
+        }
+    }
+
+    /**
+     * evalAsync — evaluates a JS expression that evaluates to a Promise (or a
+     * plain value), and reliably delivers the SETTLED result via JsBridge
+     * instead of evaluateJavascript's own (unreliable, pre-settlement) callback.
+     */
+    private void evalAsync(final WebView wv, final String promiseExpr, final Consumer<String> callback) {
+        final String callId = "cb" + callIdSeq.incrementAndGet();
+        pendingCallbacks.put(callId, callback);
+        String script =
+            "(function(){" +
+            "  try {" +
+            "    Promise.resolve(" + promiseExpr + ")" +
+            "      .then(function(r){ window.AndroidBridge.deliver(" + JSONObject.quote(callId) + ", (typeof r === 'string') ? r : JSON.stringify(r)); })" +
+            "      .catch(function(e){ window.AndroidBridge.deliver(" + JSONObject.quote(callId) + ", '__JSERR__:' + String(e)); });" +
+            "  } catch (e) {" +
+            "    window.AndroidBridge.deliver(" + JSONObject.quote(callId) + ", '__JSERR__:' + String(e));" +
+            "  }" +
+            "})();";
+        wv.evaluateJavascript(script, ignored -> { /* real result arrives via JsBridge.deliver, not here */ });
+        // Safety net in case the bridge callback is ever dropped (e.g. page navigated away)
+        mainHandler.postDelayed(() -> {
+            Consumer<String> cb = pendingCallbacks.remove(callId);
+            if (cb != null) cb.accept("__JSERR__:timeout waiting for JS result");
+        }, 20000);
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     private WebView getScraperWebView() {
         if (scraperWebView != null) return scraperWebView;
@@ -79,6 +128,9 @@ public class ReachoutScraperPlugin extends Plugin {
         android.webkit.CookieManager cm = android.webkit.CookieManager.getInstance();
         cm.setAcceptCookie(true);
         cm.setAcceptThirdPartyCookies(wv, true);
+
+        // Register the JS→native result bridge (see evalAsync/JsBridge above)
+        wv.addJavascriptInterface(new JsBridge(), "AndroidBridge");
 
         // A hidden WebView that's never attached to the view hierarchy can behave
         // unreliably (page loads / JS timers silently stalling) on some Android
@@ -136,25 +188,16 @@ public class ReachoutScraperPlugin extends Plugin {
     }
 
     private void submitLogin(final WebView wv, final Runnable onSuccess, final Consumer<String> onFail) {
-        String script =
-            "(function(){" +
-            "  return fetch('/login', {" +
-            "    method: 'POST'," +
-            "    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }," +
-            "    body: 'username=' + encodeURIComponent(" + JSONObject.quote(LOGIN_USERNAME) + ") + '&password=' + encodeURIComponent(" + JSONObject.quote(LOGIN_PASSWORD) + ")," +
-            "    credentials: 'same-origin'," +
-            "    redirect: 'follow'" +
-            "  }).then(function(r){ return (r.url && r.url.indexOf('/login') === -1) ? 'OK:' + r.url : 'FAIL:still-on-login-page'; })" +
-            "    .catch(function(e){ return 'FAIL:' + String(e); });" +
-            "})()";
-        wv.evaluateJavascript(script, raw -> {
-            String result = raw;
-            try {
-                if (result != null && result.startsWith("\"") && result.endsWith("\"")) {
-                    result = (String) new JSONTokener(raw).nextValue();
-                }
-            } catch (Exception ignored) {}
+        String promiseExpr =
+            "fetch('/login', {" +
+            "  method: 'POST'," +
+            "  headers: { 'Content-Type': 'application/x-www-form-urlencoded' }," +
+            "  body: 'username=' + encodeURIComponent(" + JSONObject.quote(LOGIN_USERNAME) + ") + '&password=' + encodeURIComponent(" + JSONObject.quote(LOGIN_PASSWORD) + ")," +
+            "  credentials: 'same-origin'," +
+            "  redirect: 'follow'" +
+            "}).then(function(r){ return (r.url && r.url.indexOf('/login') === -1) ? ('OK:' + r.url) : 'FAIL:still-on-login-page'; })";
 
+        evalAsync(wv, promiseExpr, result -> {
             if (result != null && result.startsWith("OK")) {
                 sessionEstablished = true;
                 android.util.Log.d("ReachoutScraper", "Login succeeded: " + result);
@@ -254,8 +297,16 @@ public class ReachoutScraperPlugin extends Plugin {
 
     private void runExtraction(WebView wv, ExtractionCallback cb) {
         try {
-            String script = readAssetText("scraper/extract_all.js");
-            wv.evaluateJavascript(script, cb::onResult);
+            String rawScript = readAssetText("scraper/extract_all.js").trim();
+            // extract_all.js is `(async function(){ ... })();` — a statement, not a bare
+            // expression. Strip the trailing semicolon and stash the resulting Promise on
+            // `window` so a second, separate evalAsync() call can await its real settlement
+            // (evaluateJavascript itself can't await it — see evalAsync's doc comment).
+            if (rawScript.endsWith(";")) rawScript = rawScript.substring(0, rawScript.length() - 1);
+            final String assign = "window.__pccExtractPromise = (" + rawScript + ");";
+            wv.evaluateJavascript(assign, ignored ->
+                evalAsync(wv, "window.__pccExtractPromise", cb::onResult)
+            );
         } catch (Exception e) {
             android.util.Log.e("ReachoutScraper", "Extraction failed: " + e.getMessage());
             cb.onResult(null);
@@ -328,30 +379,20 @@ public class ReachoutScraperPlugin extends Plugin {
      * by POST /login is valid for every path on the origin.
      */
     private void doApiFetch(final PluginCall call, final WebView wv, final String apiUrl) {
-        String script = "(function() {" +
-                "  return fetch(" + JSONObject.quote(apiUrl) + ", {" +
-                "    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }," +
-                "    credentials: 'same-origin'" +
-                "  }).then(r => r.ok ? r.text() : Promise.reject('HTTP ' + r.status))" +
-                "    .catch(e => '__ERR__:' + String(e));" +
-                "})()";
-        wv.evaluateJavascript(script, raw -> {
+        String promiseExpr =
+            "fetch(" + JSONObject.quote(apiUrl) + ", {" +
+            "  headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }," +
+            "  credentials: 'same-origin'" +
+            "}).then(function(r){ return r.ok ? r.text() : Promise.reject('HTTP ' + r.status); })";
+
+        evalAsync(wv, promiseExpr, result -> {
             JSObject res = new JSObject();
-            try {
-                String unwrapped = raw;
-                if (unwrapped != null && !unwrapped.equals("null")) {
-                    unwrapped = (String) new JSONTokener(raw).nextValue();
-                }
-                if (unwrapped != null && unwrapped.startsWith("__ERR__:")) {
-                    res.put("success", false);
-                    res.put("reason", unwrapped.substring(8));
-                } else {
-                    res.put("success", true);
-                    res.put("text", unwrapped == null ? "" : unwrapped);
-                }
-            } catch (Exception e) {
+            if (result != null && result.startsWith("__JSERR__:")) {
                 res.put("success", false);
-                res.put("reason", e.getMessage());
+                res.put("reason", result.substring(10));
+            } else {
+                res.put("success", true);
+                res.put("text", result == null ? "" : result);
             }
             call.resolve(res);
         });
