@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sign in — Reachout Command Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<script src="capacitor-bridge.js"></script>
+<style>
+:root{
+  --bg:#f0f4f8;--surface:#fff;--surface2:#f8fafc;--surface3:#f1f5f9;
+  --border:#e2e8f0;--border2:#cbd5e1;
+  --t1:#0f172a;--t2:#334155;--t3:#64748b;--t4:#94a3b8;
+  --primary:#6366f1;--primary2:#4f46e5;--primary3:#818cf8;--primary-bg:#eef2ff;
+  --purple:#8b5cf6;
+  --red:#ef4444;--red-bg:#fef2f2;--red-bd:#fca5a5;
+  --r:8px;--rlg:12px;--rxl:16px;
+  --sh-lg:0 10px 30px rgba(0,0,0,.1),0 4px 8px rgba(0,0,0,.05);
+  --sh-xl:0 24px 60px rgba(15,23,42,.18);
+  --f:'Inter',system-ui,-apple-system,sans-serif;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{
+  font-family:var(--f);color:var(--t1);font-size:13px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  display:flex;align-items:center;justify-content:center;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(99,102,241,.12), transparent 45%),
+    radial-gradient(circle at 85% 80%, rgba(139,92,246,.12), transparent 45%),
+    var(--bg);
+  -webkit-app-region:drag;
+}
+.card{
+  -webkit-app-region:no-drag;
+  width:360px;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--rxl);box-shadow:var(--sh-xl);padding:34px 32px 28px;
+  animation:rise .35s cubic-bezier(.16,1,.3,1);
+}
+@keyframes rise{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+.brand{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:22px}
+.brand-logo{
+  width:48px;height:48px;border-radius:14px;
+  background:linear-gradient(135deg,var(--primary),var(--purple));
+  display:flex;align-items:center;justify-content:center;font-size:22px;
+  box-shadow:0 8px 20px rgba(99,102,241,.35);
+}
+.brand-name{font-size:15px;font-weight:900;letter-spacing:-.3px;color:var(--t1)}
+.brand-sub{font-size:11px;font-weight:600;color:var(--t3);letter-spacing:.02em}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em}
+.field input{
+  width:100%;padding:10px 12px;border:1px solid var(--border2);border-radius:var(--r);
+  font-family:var(--f);font-size:13.5px;color:var(--t1);background:var(--surface2);
+  outline:none;transition:border-color .15s,box-shadow .15s;
+}
+.field input:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-bg);background:var(--surface)}
+.btn{
+  width:100%;padding:11px;border:none;border-radius:var(--r);margin-top:6px;
+  background:linear-gradient(135deg,var(--primary),var(--primary2));color:#fff;
+  font-family:var(--f);font-size:13.5px;font-weight:700;cursor:pointer;
+  box-shadow:0 4px 12px rgba(99,102,241,.3);transition:transform .12s,box-shadow .12s,opacity .12s;
+}
+.btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(99,102,241,.4)}
+.btn:active{transform:translateY(0)}
+.btn:disabled{opacity:.65;cursor:default;transform:none}
+.err{
+  display:none;align-items:center;gap:7px;background:var(--red-bg);border:1px solid var(--red-bd);
+  color:var(--red);font-size:12px;font-weight:600;border-radius:var(--r);padding:9px 11px;margin-bottom:14px;
+}
+.err.show{display:flex}
+.footer-note{text-align:center;font-size:10.5px;color:var(--t4);margin-top:18px;letter-spacing:.02em}
+.shake{animation:shake .32s}
+@keyframes shake{
+  10%,90%{transform:translateX(-1px)}
+  20%,80%{transform:translateX(2px)}
+  30%,50%,70%{transform:translateX(-4px)}
+  40%,60%{transform:translateX(4px)}
+}
+</style>
+</head>
+<body>
+  <form class="card" id="login-form" autocomplete="off">
+    <div class="brand">
+      <div class="brand-logo">📡</div>
+      <div class="brand-name">Reachout Command Center</div>
+      <div class="brand-sub">Sign in to continue</div>
+    </div>
+
+    <div class="err" id="err-box"><span>⚠️</span><span id="err-text">Invalid username or password.</span></div>
+
+    <div class="field">
+      <label for="username">Username</label>
+      <input type="text" id="username" name="username" placeholder="Enter username" autocomplete="username" autofocus>
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" placeholder="Enter password" autocomplete="current-password">
+    </div>
+
+    <button type="submit" class="btn" id="submit-btn">Sign In</button>
+    <div class="footer-note">Reachout Media Tech &middot; Authorized personnel only</div>
+  </form>
+
+  <script>
+    const ipcRenderer = window.ipcRenderer; // provided by capacitor-bridge.js
+
+    const form     = document.getElementById('login-form');
+    const userEl   = document.getElementById('username');
+    const passEl   = document.getElementById('password');
+    const errBox   = document.getElementById('err-box');
+    const errText  = document.getElementById('err-text');
+    const submitBtn= document.getElementById('submit-btn');
+    const card     = document.querySelector('.card');
+
+    function showError(msg) {
+      errText.textContent = msg || 'Invalid username or password.';
+      errBox.classList.add('show');
+      card.classList.remove('shake');
+      void card.offsetWidth; // restart animation
+      card.classList.add('shake');
+      passEl.value = '';
+      passEl.focus();
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errBox.classList.remove('show');
+
+      const username = userEl.value.trim();
+      const password = passEl.value;
+
+      if (!username || !password) {
+        showError('Please enter both username and password.');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Signing in…';
+
+      try {
+        const result = await ipcRenderer.invoke('login-attempt', { username, password });
+        if (!result || !result.success) {
+          showError(result && result.reason ? result.reason : 'Invalid username or password.');
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Sign In';
+        } else {
+          // On desktop, Electron's main process silently swapped windows here.
+          // On mobile there's a single WebView, so we navigate to the dashboard view.
+          window.location.href = 'dashboard-view.html';
+        }
+      } catch (err) {
+        showError('Something went wrong. Please try again.');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Sign In';
+      }
+    });
+  </script>
+</body>
+</html>
