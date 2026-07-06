@@ -100,6 +100,11 @@ body{
       <input type="password" id="password" name="password" placeholder="Enter password" autocomplete="current-password">
     </div>
 
+    <div class="field" style="display:flex;align-items:center;gap:7px;margin-bottom:18px">
+      <input type="checkbox" id="remember-me" style="width:14px;height:14px;accent-color:var(--primary);cursor:pointer">
+      <label for="remember-me" style="margin:0;text-transform:none;font-size:12.5px;font-weight:500;color:var(--t2);cursor:pointer">Remember me on this device</label>
+    </div>
+
     <button type="submit" class="btn" id="submit-btn">Sign In</button>
     <div class="footer-note">Reachout Media Tech &middot; Authorized personnel only</div>
   </form>
@@ -110,10 +115,22 @@ body{
     const form     = document.getElementById('login-form');
     const userEl   = document.getElementById('username');
     const passEl   = document.getElementById('password');
+    const rememberEl = document.getElementById('remember-me');
     const errBox   = document.getElementById('err-box');
     const errText  = document.getElementById('err-text');
     const submitBtn= document.getElementById('submit-btn');
     const card     = document.querySelector('.card');
+
+    // ── Auto-login: if "Remember me" was checked on a previous launch, skip
+    // straight to the dashboard instead of showing the login form. ──
+    (async () => {
+      try {
+        const remembered = await ipcRenderer.invoke('get-remembered-login');
+        if (remembered && remembered.username) {
+          window.location.href = 'dashboard-view.html';
+        }
+      } catch { /* fall through to normal login form on any error */ }
+    })();
 
     function showError(msg) {
       errText.textContent = msg || 'Invalid username or password.';
@@ -141,7 +158,7 @@ body{
       submitBtn.textContent = 'Signing in…';
 
       try {
-        const result = await ipcRenderer.invoke('login-attempt', { username, password });
+        const result = await ipcRenderer.invoke('login-attempt', { username, password, remember: rememberEl.checked });
         if (!result || !result.success) {
           showError(result && result.reason ? result.reason : 'Invalid username or password.');
           submitBtn.disabled = false;

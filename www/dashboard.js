@@ -27,7 +27,7 @@ let sortAsc         = true;
 let actFilter       = 'all';
 let demFilter       = 'all';
 let advFilter       = { uptime: '', lastSeen: '', dateFrom: '', dateTo: '', offlinePreset: '', datetimeFrom: '', datetimeTo: '' };
-let selectedDevs    = new Set();
+let selectedDevs    = new Set(); // retained for backward-compat; selection UI removed
 let notifCount      = 0;
 let darkMode        = false;
 let sessionStats    = { wentOffline:0, cameOnline:0, polls:0 }; // insight counters
@@ -1038,9 +1038,9 @@ function filterByDiv(name) {
 // Build one device row HTML string
 function buildDeviceRow(d, withCheckbox) {
   const initials = d.name.slice(0,2).toUpperCase();
-  const chk = withCheckbox
-    ? `<td><input type="checkbox" ${selectedDevs.has(d._id)?'checked':''} onchange="toggleSel('${esc(d._id)}',this)" onclick="event.stopPropagation()"></td>`
-    : '';
+  // Selection checkbox column removed from the UI — see renderDeviceTable's
+  // cols calc below, which no longer varies by withCheckbox either.
+  const chk = '';
   const lastFmt = fmtLastSeen(d.last, d._lastTs, d.online);
   const lastRaw = d.last !== '—' ? d.last : (d._lastTs ? new Date(d._lastTs).toLocaleString() : '—');
   const tu = computeTotalUptime(d._id);
@@ -1123,7 +1123,7 @@ function renderDeviceTable(tbodyId, withCheckbox) {
   setText('dev-count',  list.length + ' / ' + allDevices.length);
   setText('dev-count2', list.length + ' / ' + allDevices.length);
 
-  const cols = withCheckbox ? 8 : 7;
+  const cols = 7; // checkbox column removed — same column count for both tables now
   if (!list.length) {
     tbody.innerHTML = `<tr><td colspan="${cols}" class="empty-row">No devices match the current filter.</td></tr>`;
     return;
@@ -1390,22 +1390,7 @@ function setFilter(f, btn) {
   renderDeviceTable('device-tbody2', false);
 }
 
-// Selection
-function toggleSel(id, cb) {
-  if (cb.checked) selectedDevs.add(id); else selectedDevs.delete(id);
-  const bar = $('sel-bar');
-  if (bar) {
-    bar.style.display = selectedDevs.size ? 'flex' : 'none';
-    setText('sel-count', selectedDevs.size + ' selected');
-  }
-}
-function selectAll() { /* simple — toggle all */ }
-function clearSel() {
-  selectedDevs.clear();
-  const bar = $('sel-bar');
-  if (bar) bar.style.display = 'none';
-  renderDeviceTable('device-tbody', true);
-}
+// Selection UI removed (checkbox column + sel-bar no longer rendered).
 
 // ══════════════════════════════════════════════════════════════
 //  DEVICE MODAL — Full History View
@@ -2093,7 +2078,12 @@ function setSyncStatus(state, msg) {
 // ══════════════════════════════════════════════════════════════
 //  NAVIGATION
 // ══════════════════════════════════════════════════════════════
-function navTo(page) {
+// In-app navigation history — lets the Android hardware back button return to
+// the previous screen/module instead of falling through to WebView history
+// (which would land on the login page). See the backButton listener below.
+let _navStack = [];
+
+function _renderPage(page) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const pg = document.getElementById('page-' + page);
@@ -2103,6 +2093,19 @@ function navTo(page) {
   document.querySelector('.page-wrap')?.scrollTo(0,0);
   if (page==='activity') { renderActPage(); }
   if (page==='dashboard') { updateInsightWidgets(); }
+}
+
+function navTo(page) {
+  const current = document.querySelector('.page.active')?.id?.replace('page-', '');
+  if (current && current !== page) _navStack.push(current);
+  _renderPage(page);
+}
+
+// Used by the hardware back button — goes to the previous screen WITHOUT
+// pushing a new forward-history entry.
+function navBackInApp() {
+  const prev = _navStack.pop() || 'dashboard';
+  _renderPage(prev);
 }
 
 // ─── Dashboard card navigation helpers ─────────────────────────
@@ -2311,8 +2314,10 @@ async function reloadApp() {
 async function logout() {
   if (!confirm('Sign out? This will clear session data.')) return;
   await ipcRenderer.invoke('set-perm', 'session', null);
+  await ipcRenderer.invoke('clear-remembered-login'); // also clears any "Remember Me" auto-login
   logEvent('User signed out', 'warn');
   showToast('Signed out');
+  setTimeout(() => { window.location.href = 'index.html'; }, 500);
 }
 async function resetAll() {
   if (!confirm('Reset ALL data? This cannot be undone.')) return;

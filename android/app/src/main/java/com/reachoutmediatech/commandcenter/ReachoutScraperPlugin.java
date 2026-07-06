@@ -51,8 +51,8 @@ public class ReachoutScraperPlugin extends Plugin {
     // the app for all users, per your "single shared service credential"
     // choice. These values never leave the device; they're only used to
     // submit the same POST /login the browser form itself submits.
-    private static final String LOGIN_USERNAME = "reachout";
-    private static final String LOGIN_PASSWORD = "reach2424";
+    private static final String LOGIN_USERNAME = "REPLACE_WITH_USERNAME";
+    private static final String LOGIN_PASSWORD = "REPLACE_WITH_PASSWORD";
     // ──────────────────────────────────────────────────────────────────────
 
     private static final String REACHOUT_BASE = "https://app.reachoutmediatech.info";

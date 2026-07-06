@@ -101,13 +101,38 @@
 
   // ── The channel router — mirrors every ipcMain.handle(...) in main.js ──
   const handlers = {
-    async 'login-attempt'({ username, password } = {}) {
+    async 'login-attempt'({ username, password, remember } = {}) {
       const uname = String(username || '').trim().toLowerCase();
       const user = AUTH_USERS.find(u => u.username === uname);
       if (!user) return { success: false, reason: 'Invalid username or password.' };
       const hash = await sha256(password);
       if (hash !== user.hash) return { success: false, reason: 'Invalid username or password.' };
       await Preferences.set({ key: 'rcc_logged_in', value: '1' });
+      // "Remember Me": store the username + password HASH only (never the
+      // plaintext password) so a future launch can silently re-validate
+      // against the same AUTH_USERS list used for real logins.
+      if (remember) {
+        await Preferences.set({ key: 'rcc_remember_user', value: JSON.stringify({ username: uname, hash }) });
+      } else {
+        await Preferences.remove({ key: 'rcc_remember_user' });
+      }
+      return { success: true };
+    },
+
+    async 'get-remembered-login'() {
+      try {
+        const r = await Preferences.get({ key: 'rcc_remember_user' });
+        if (!r || !r.value) return null;
+        const data = JSON.parse(r.value);
+        // Never trust the stored hash blindly — re-validate against AUTH_USERS.
+        const user = AUTH_USERS.find(u => u.username === data.username && u.hash === data.hash);
+        return user ? { username: data.username } : null;
+      } catch { return null; }
+    },
+
+    async 'clear-remembered-login'() {
+      await Preferences.remove({ key: 'rcc_remember_user' });
+      await Preferences.remove({ key: 'rcc_logged_in' });
       return { success: true };
     },
 
@@ -169,6 +194,12 @@
       try {
         const perm = await LocalNotifications.checkPermissions();
         if (perm.display !== 'granted') {
+          // Only ever show the OS permission dialog once. If the user already
+          // made a choice (Allow or Don't Allow), don't ask again on every
+          // subsequent Sync Now — just skip the notification silently.
+          const askedBefore = (await Preferences.get({ key: 'rcc_notif_asked' })).value === '1';
+          if (askedBefore) return { success: false, reason: 'permission-denied' };
+          await Preferences.set({ key: 'rcc_notif_asked', value: '1' });
           const req = await LocalNotifications.requestPermissions();
           if (req.display !== 'granted') return { success: false, reason: 'permission-denied' };
         }

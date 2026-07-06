@@ -294,7 +294,6 @@ body{font-family:var(--f);background:var(--bg);color:var(--t1);font-size:13px;li
 .div-filter-btn{padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:500;border:1px solid var(--border);background:var(--surface);color:var(--t2);cursor:pointer;transition:all .12s}
 .div-filter-btn:hover{border-color:var(--primary);color:var(--primary)}
 .div-filter-btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
-#sel-bar{display:none;align-items:center;gap:8px;padding:8px 16px;background:var(--primary-bg);border-bottom:1px solid var(--primary-bd);font-size:12.5px;color:var(--primary);font-weight:500}
 table{width:100%;border-collapse:collapse}
 thead th{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--t3);padding:10px 12px;text-align:left;background:var(--surface2);border-bottom:1px solid var(--border);cursor:pointer;user-select:none;white-space:nowrap;transition:color .15s}
 thead th:hover{color:var(--t1)}
@@ -753,8 +752,6 @@ body.no-scroll{overflow:hidden}
             <div class="um-item" onclick="navTo('settings');closeUserMenu()">⚙️ Settings</div>
             <div class="um-item" onclick="backupData();closeUserMenu()">💾 Backup Data</div>
             <div class="um-sep"></div>
-            <div class="um-item" onclick="ipcRenderer.invoke('open-external','https://app.reachoutmediatech.info/admin');closeUserMenu()">🌐 Open Admin</div>
-            <div class="um-sep"></div>
             <div class="um-item" onclick="reloadApp();closeUserMenu()" style="color:var(--primary);font-weight:600">🔄 Reload App <span style="font-size:10px;color:var(--t4);font-weight:400">(Ctrl+Shift+R)</span></div>
             <div class="um-item" onclick="logout();closeUserMenu()">🚪 Sign Out</div>
           </div>
@@ -994,16 +991,10 @@ body.no-scroll{overflow:hidden}
               <button class="btn btn-outline btn-sm" onclick="exportXLSX()">⬇ XLSX</button>
             </div>
           </div>
-          <div id="sel-bar">
-            <span id="sel-count">0 selected</span>
-            <button class="btn btn-outline btn-xs" onclick="clearSel()">Clear</button>
-            <button class="btn btn-outline btn-xs" onclick="exportXLSX()">Export Selected</button>
-          </div>
           <div class="div-tags-wrap" id="div-tags-wrap"></div>
           <table>
             <thead>
               <tr>
-                <th style="width:32px"><input type="checkbox" onclick="selectAll()"></th>
                 <th data-sort="name" onclick="setSort('name')" style="cursor:pointer">Device<span class="sort-icon"> ⇅</span></th>
                 <th data-sort="online" onclick="setSort('online')" style="cursor:pointer">Status<span class="sort-icon"> ⇅</span></th>
                 <th data-sort="uptime" onclick="setSort('uptime')" style="cursor:pointer">Uptime<span class="sort-icon"> ⇅</span></th>
@@ -1013,7 +1004,7 @@ body.no-scroll{overflow:hidden}
                 <th style="width:70px"></th>
               </tr>
             </thead>
-            <tbody id="device-tbody"><tr><td colspan="8" class="empty-row">Connecting to ReachOut…</td></tr></tbody>
+            <tbody id="device-tbody"><tr><td colspan="7" class="empty-row">Connecting to ReachOut…</td></tr></tbody>
           </table>
         </div>
       </div><!-- /dashboard -->
@@ -1416,6 +1407,36 @@ document.addEventListener('DOMContentLoaded', function(){
     if(window.innerWidth > 900) closeMobileSidebar();
   });
 });
+
+// ── Android hardware back button ────────────────────────────────────────
+// Without this, Capacitor's default behavior is to call the WebView's own
+// browser-history back(), which — since this whole dashboard is one SPA
+// page with client-side "screens" (see navTo/_navStack in dashboard.js) —
+// only ever has ONE real history entry to go back to: the login page. That
+// caused the back button to drop straight to Login from anywhere. Instead:
+// close any open overlay first, then step back through in-app screens, and
+// only minimize (never navigate to Login) once at the dashboard root.
+(function(){
+  const App = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+  if (!App) return;
+  App.addListener('backButton', function(){
+    const deviceModal = document.getElementById('device-modal');
+    const exploreModal = document.getElementById('div-explore-modal');
+    const userMenu = document.getElementById('user-menu');
+    const sidebar = document.getElementById('sidebar');
+
+    if (deviceModal && deviceModal.style.display === 'flex') { closeModal(); return; }
+    if (exploreModal && exploreModal.style.display === 'flex') { closeDivExplore(); return; }
+    if (userMenu && userMenu.classList.contains('show')) { closeUserMenu(); return; }
+    if (sidebar && sidebar.classList.contains('mobile-open')) { closeMobileSidebar(); return; }
+    if (typeof _navStack !== 'undefined' && _navStack.length > 0) { navBackInApp(); return; }
+
+    // Already at the dashboard root with no more in-app history — standard
+    // Android behavior is to leave the app in place (minimize), not exit
+    // or fall through to a previous WebView page.
+    App.minimizeApp();
+  });
+})();
 
 async function testNotification() {
   const result = await ipcRenderer.invoke('show-notification',{title:'🔔 Reachout Command Center v2.0',body:'Test notification — ReachOut edition working!',silent:false});
