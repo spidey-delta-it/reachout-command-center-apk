@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Reachout Command Center v2.0</title>
+<title>Reachout Command Center v3.0</title>
 <!-- Fonts: system-ui fallback for performance; Inter loads async if available -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -647,7 +647,7 @@ body.no-scroll{overflow:hidden}
       </svg>
     </div>
     <div id="lo-title">Reachout Command Center</div>
-    <div id="lo-ver" id="lo-ver-lbl">v2.0</div>
+    <div id="lo-ver" id="lo-ver-lbl">v3.0</div>
     <div id="lo-bar-wrap"><div id="lo-bar"></div></div>
     <div id="lo-status">Connecting to ReachOut…</div>
   </div>
@@ -679,7 +679,7 @@ body.no-scroll{overflow:hidden}
       <div class="sb-brand">
         <div class="sb-name">Reachout</div>
         <div class="sb-sub">Command Center</div>
-        <div class="sb-ver">v2.0</div>
+        <div class="sb-ver">v3.0</div>
       </div>
     </div>
     <div class="sb-nav">
@@ -1174,7 +1174,7 @@ body.no-scroll{overflow:hidden}
 
       <!-- ═══ SETTINGS ═══ -->
       <div class="page" id="page-settings">
-        <div class="page-hd"><div><div class="page-title">Settings</div><div class="page-sub">Reachout Command Center v2.0</div></div></div>
+        <div class="page-hd"><div><div class="page-title">Settings</div><div class="page-sub">Reachout Command Center v3.0</div></div></div>
         <div class="card">
           <div class="form-sec">
             <div class="fg">
@@ -1439,7 +1439,7 @@ document.addEventListener('DOMContentLoaded', function(){
 })();
 
 async function testNotification() {
-  const result = await ipcRenderer.invoke('show-notification',{title:'🔔 Reachout Command Center v2.0',body:'Test notification — ReachOut edition working!',silent:false});
+  const result = await ipcRenderer.invoke('show-notification',{title:'🔔 Reachout Command Center v3.0',body:'Test notification — ReachOut edition working!',silent:false});
   if(typeof showToast==='function'){if(result?.reason==='not-supported')showToast('⚠️ OS notifications not supported');else showToast('✅ Test notification sent!');}
 }
 </script>
