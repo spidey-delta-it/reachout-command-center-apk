@@ -2,6 +2,11 @@ name: Build Android APK
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g. 3.0.0)'
+        required: false
+        default: '3.0.0'
 
 permissions:
   contents: write
@@ -9,6 +14,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -18,11 +24,11 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Setup JDK 17
-        uses: actions/setup-java@v4
+      - name: Setup JDK 21
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -30,21 +36,75 @@ jobs:
           packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
           cmdline-tools-version: '11076708'
 
-      - name: Install npm dependencies
-        run: npm install
+      - name: Stamp version in package.json
+        shell: bash
+        run: |
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json'));
+            pkg.version = '${{ github.event.inputs.version }}';
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+          "
 
-      - name: Sync Capacitor
+      - name: Stamp version in Android build.gradle
+        shell: bash
+        run: |
+          sed -i "s/versionName \".*\"/versionName \"${{ github.event.inputs.version }}\"/" android/app/build.gradle
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Sync Capacitor Android project
         run: npx cap sync android
 
-      - name: Make gradlew executable
-        run: chmod +x android/gradlew
-
-      - name: Build APK
+      - name: Build debug APK
         working-directory: android
-        run: ./gradlew assembleDebug
+        run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
 
-      - name: Upload APK artifact
+      - name: Upload APK as build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: reachout-command-center-apk
+          name: ReachoutCommandCenter-v${{ github.event.inputs.version }}-android
           path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Extract release notes from CHANGELOG
+        shell: bash
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          if [ -f CHANGELOG.md ]; then
+            awk -v ver="$VERSION" '
+              /^## \[/ {
+                if (p) exit;
+                if ($0 ~ "\\["ver"\\]") { p=1; print; next }
+              }
+              p { print }
+            ' CHANGELOG.md > RELEASE_NOTES.md
+          fi
+          if [ ! -s RELEASE_NOTES.md ]; then
+            echo "## ReachOut Command Center Android v${VERSION}" > RELEASE_NOTES.md
+            echo "" >> RELEASE_NOTES.md
+            echo "_No changelog entry found for this version — see commit history for details._" >> RELEASE_NOTES.md
+          fi
+          echo "" >> RELEASE_NOTES.md
+          echo "---" >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "### Installation" >> RELEASE_NOTES.md
+          echo "1. Download \`app-debug.apk\` below" >> RELEASE_NOTES.md
+          echo "2. On your Android device, enable 'Install unknown apps' for your browser/file manager" >> RELEASE_NOTES.md
+          echo "3. Open the APK to install" >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "This is a debug-signed build intended for direct/sideloaded install. For Play Store publishing, a release signing key needs to be configured separately." >> RELEASE_NOTES.md
+
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        continue-on-error: true
+        with:
+          tag_name: android-v${{ github.event.inputs.version }}
+          name: Reachout Command Center Android v${{ github.event.inputs.version }}
+          body_path: RELEASE_NOTES.md
+          files: android/app/build/outputs/apk/debug/app-debug.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
